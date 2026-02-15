@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<properties>
+    <property id="workDuration" type="number">1500</property>
+    <property id="shortBreakDuration" type="number">300</property>
+    <property id="longBreakDuration" type="number">900</property>
+    <property id="autoStartBreak" type="boolean">false</property>
+</properties>

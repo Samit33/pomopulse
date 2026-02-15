@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<settings>
+    <setting propertyKey="@Properties.workDuration" title="Work Duration">
+        <settingConfig type="numeric" min="10" max="60" />
+    </setting>
+    <setting propertyKey="@Properties.shortBreakDuration" title="Short Break">
+        <settingConfig type="numeric" min="1" max="30" />
+    </setting>
+    <setting propertyKey="@Properties.longBreakDuration" title="Long Break">
+        <settingConfig type="numeric" min="5" max="60" />
+    </setting>
+    <setting propertyKey="@Properties.autoStartBreak" title="Auto-start Break">
+        <settingConfig type="boolean" />
+    </setting>
+</settings>

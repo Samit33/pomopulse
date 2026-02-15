@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layout id="SettingsLayout">
+    <!-- Settings uses Menu2 which handles layout automatically -->
+</layout>

@@ -1,0 +1,13 @@
+# PomoPulse Build Configuration
+
+project.manifest = manifest.xml
+
+# Base resources
+base.sourcePath = source
+base.resourcePath = resources
+
+# Forerunner 255 specific resources (260x260 round display)
+fr255.resourcePath = $(fr255.resourcePath);resources-round-260x260
+fr255m.resourcePath = $(fr255m.resourcePath);resources-round-260x260
+fr255s.resourcePath = $(fr255s.resourcePath);resources-round-260x260
+fr255sm.resourcePath = $(fr255sm.resourcePath);resources-round-260x260
