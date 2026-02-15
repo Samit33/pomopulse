@@ -1,5 +1,6 @@
-using Toybox.WatchUi;
-using Toybox.System;
+import Toybox.Lang;
+import Toybox.System;
+import Toybox.WatchUi;
 
 //! Input handler for the main timer view
 class PomoPulseDelegate extends WatchUi.BehaviorDelegate {

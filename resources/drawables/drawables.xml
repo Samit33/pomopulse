@@ -1,6 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <drawables>
-    <bitmap id="LauncherIcon">
-        <filename>../images/launcher_icon.png</filename>
-    </bitmap>
+    <bitmap id="LauncherIcon" filename="../images/launcher_icon.png" />
 </drawables>

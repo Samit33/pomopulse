@@ -1,7 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
 <fitContributions>
-    <fitField id="flow_score" displayInChart="true" displayInActivityLaps="true" displayInActivitySummary="true" sortOrder="1">
-        <fieldLabel>Flow Score</fieldLabel>
-        <unit>score</unit>
-    </fitField>
+    <fitField id="0" displayInChart="true" displayInActivityLaps="true" displayInActivitySummary="true" sortOrder="1" dataLabel="@Strings.FlowScoreLabel" unitLabel="@Strings.FlowScoreUnit" />
 </fitContributions>

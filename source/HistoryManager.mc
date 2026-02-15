@@ -1,8 +1,8 @@
-using Toybox.Application.Storage;
-using Toybox.System;
-using Toybox.Lang;
-using Toybox.Time;
-using Toybox.Time.Gregorian;
+import Toybox.Application.Storage;
+import Toybox.Lang;
+import Toybox.System;
+import Toybox.Time;
+import Toybox.Time.Gregorian;
 
 //! Manages session history persistence using Storage API
 class HistoryManager {

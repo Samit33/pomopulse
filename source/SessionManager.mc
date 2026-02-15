@@ -1,8 +1,9 @@
-using Toybox.ActivityRecording;
-using Toybox.Activity;
-using Toybox.FitContributor;
-using Toybox.System;
-using Toybox.Time;
+import Toybox.Activity;
+import Toybox.ActivityRecording;
+import Toybox.FitContributor;
+import Toybox.Lang;
+import Toybox.System;
+import Toybox.Time;
 
 //! Manages FIT recording sessions with custom FlowScore field
 class SessionManager {

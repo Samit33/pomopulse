@@ -1,5 +1,5 @@
-using Toybox.Math;
-using Toybox.Lang;
+import Toybox.Lang;
+import Toybox.Math;
 
 //! Calculates the Flow Score (0-100) from multi-sensor biofeedback
 //!

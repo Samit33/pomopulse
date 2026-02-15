@@ -1,7 +1,8 @@
-using Toybox.Timer;
-using Toybox.System;
-using Toybox.Application;
-using Toybox.Attention;
+import Toybox.Application;
+import Toybox.Attention;
+import Toybox.Lang;
+import Toybox.System;
+import Toybox.Timer;
 
 //! Timer states
 enum TimerState {
@@ -183,7 +184,7 @@ class TimerController {
     }
 
     //! Trigger vibration alert
-    private function vibrate() as Void {
+    function vibrate() as Void {
         if (Attention has :vibrate) {
             var vibeData = [
                 new Attention.VibeProfile(100, 500),

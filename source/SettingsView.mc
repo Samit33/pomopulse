@@ -1,6 +1,7 @@
-using Toybox.WatchUi;
-using Toybox.Graphics;
-using Toybox.System;
+import Toybox.Graphics;
+import Toybox.Lang;
+import Toybox.System;
+import Toybox.WatchUi;
 
 //! Settings menu using Menu2
 class SettingsMenu extends WatchUi.Menu2 {

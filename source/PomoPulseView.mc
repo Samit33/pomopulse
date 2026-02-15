@@ -1,7 +1,7 @@
-using Toybox.WatchUi;
-using Toybox.Graphics;
-using Toybox.System;
-using Toybox.Lang;
+import Toybox.Graphics;
+import Toybox.Lang;
+import Toybox.System;
+import Toybox.WatchUi;
 
 //! Main timer display view with Flow Score gauge
 class PomoPulseView extends WatchUi.View {
@@ -207,7 +207,6 @@ class PomoPulseView extends WatchUi.View {
     //! Draw pomodoro count
     private function drawPomodoroCount(dc as Dc) as Void {
         var count = _timerController.getPomodorosCompleted();
-        var pomodoroText = "";
 
         // Draw filled circles for completed pomodoros (max 4 displayed)
         var displayCount = count > 4 ? 4 : count;

@@ -1,5 +1,5 @@
-using Toybox.Math;
-using Toybox.Lang;
+import Toybox.Lang;
+import Toybox.Math;
 
 //! Analyzes heart beat intervals to calculate HRV metrics (RMSSD)
 class HrvAnalyzer {

@@ -1,6 +1,7 @@
-using Toybox.Application;
-using Toybox.WatchUi;
-using Toybox.System;
+import Toybox.Application;
+import Toybox.Lang;
+import Toybox.WatchUi;
+import Toybox.System;
 
 //! Main application entry point for PomoPulse
 class PomoPulseApp extends Application.AppBase {

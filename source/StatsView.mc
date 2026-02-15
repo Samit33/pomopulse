@@ -1,8 +1,9 @@
-using Toybox.WatchUi;
-using Toybox.Graphics;
-using Toybox.System;
-using Toybox.Time;
-using Toybox.Time.Gregorian;
+import Toybox.Graphics;
+import Toybox.Lang;
+import Toybox.System;
+import Toybox.Time;
+import Toybox.Time.Gregorian;
+import Toybox.WatchUi;
 
 //! View displaying session history and statistics
 class StatsView extends WatchUi.View {

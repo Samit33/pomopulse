@@ -1,8 +1,8 @@
-using Toybox.Sensor;
-using Toybox.SensorHistory;
-using Toybox.System;
-using Toybox.Lang;
-using Toybox.Math;
+import Toybox.Lang;
+import Toybox.Math;
+import Toybox.Sensor;
+import Toybox.SensorHistory;
+import Toybox.System;
 
 //! Manages sensor data collection for Flow Score calculation
 class SensorManager {
