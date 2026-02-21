@@ -1,0 +1,9 @@
+# Compiled output
+bin/
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# Garmin developer key (keep private)
+*.der
+*.prv
