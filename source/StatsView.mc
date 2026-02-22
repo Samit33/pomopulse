@@ -5,24 +5,24 @@ import Toybox.Time;
 import Toybox.Time.Gregorian;
 import Toybox.WatchUi;
 
-//! View displaying session history and statistics
+//! View displaying session history and statistics.
+//! Shows focus time and session counts; biometric scores are not displayed
+//! here to avoid false precision from noisy per-session composites.
 class StatsView extends WatchUi.View {
 
     private var _historyManager as HistoryManager?;
 
     // Screen dimensions
-    private var _screenWidth as Number = 0;
+    private var _screenWidth  as Number = 0;
     private var _screenHeight as Number = 0;
-    private var _centerX as Number = 0;
-    private var _centerY as Number = 0;
+    private var _centerX      as Number = 0;
+    private var _centerY      as Number = 0;
 
     // Colors
-    private const COLOR_BG = 0x000000;
-    private const COLOR_TEXT = 0xFFFFFF;
+    private const COLOR_BG       = 0x000000;
+    private const COLOR_TEXT     = 0xFFFFFF;
     private const COLOR_TEXT_DIM = 0xAAAAAA;
-    private const COLOR_ACCENT = 0x44AAFF;
-    private const COLOR_FLOW_LOW = 0xFF4444;
-    private const COLOR_FLOW_MED = 0xFFAA00;
+    private const COLOR_ACCENT   = 0x44AAFF;
     private const COLOR_FLOW_HIGH = 0x44FF44;
 
     //! Constructor
@@ -33,9 +33,9 @@ class StatsView extends WatchUi.View {
 
     //! Load resources
     function onLayout(dc as Dc) as Void {
-        _screenWidth = dc.getWidth();
+        _screenWidth  = dc.getWidth();
         _screenHeight = dc.getHeight();
-        _centerX = _screenWidth / 2;
+        _centerX = _screenWidth  / 2;
         _centerY = _screenHeight / 2;
     }
 
@@ -65,18 +65,7 @@ class StatsView extends WatchUi.View {
                     "No sessions yet", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    //! Get flow color for a given score
-    private function getFlowColor(score as Number) as Number {
-        if (score < 40) {
-            return COLOR_FLOW_LOW;
-        } else if (score < 70) {
-            return COLOR_FLOW_MED;
-        } else {
-            return COLOR_FLOW_HIGH;
-        }
-    }
-
-    //! Draw statistics
+    //! Draw statistics — focus time and session counts only
     private function drawStats(dc as Dc) as Void {
         var hm = _historyManager;
         if (hm == null) { return; }
@@ -87,45 +76,34 @@ class StatsView extends WatchUi.View {
                     "Focus Stats", Graphics.TEXT_JUSTIFY_CENTER);
 
         // --- Today section ---
-        var todayTime = hm.getTodayFocusTime();
+        var todayTime     = hm.getTodayFocusTime();
         var todaySessions = hm.getTodaySessions();
-        var todayAvgFlow = hm.getTodayAvgFlowScore();
 
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 50, Graphics.FONT_TINY, "Today", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(_centerX, 52, Graphics.FONT_TINY, "Today", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Today: focus time and flow score side by side
+        // Today: focus time (large, centered)
         dc.setColor(COLOR_FLOW_HIGH, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX - 25, 70, Graphics.FONT_MEDIUM,
-                    hm.formatDuration(todayTime), Graphics.TEXT_JUSTIFY_RIGHT);
-
-        if (todayAvgFlow > 0) {
-            dc.setColor(getFlowColor(todayAvgFlow), Graphics.COLOR_TRANSPARENT);
-            dc.drawText(_centerX + 25, 70, Graphics.FONT_MEDIUM,
-                        todayAvgFlow.format("%d"), Graphics.TEXT_JUSTIFY_LEFT);
-            dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(_centerX, 70, Graphics.FONT_XTINY,
-                        "|", Graphics.TEXT_JUSTIFY_CENTER);
-        }
+        dc.drawText(_centerX, 72, Graphics.FONT_MEDIUM,
+                    hm.formatDuration(todayTime), Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 95, Graphics.FONT_XTINY,
-                    todaySessions.size().format("%d") + " sessions", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(_centerX, 98, Graphics.FONT_XTINY,
+                    todaySessions.size().format("%d") + " sessions",
+                    Graphics.TEXT_JUSTIFY_CENTER);
 
         // Divider
         dc.setColor(0x333333, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(50, 112, _screenWidth - 50, 112);
+        dc.drawLine(50, 116, _screenWidth - 50, 116);
 
         // --- All-time section ---
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 120, Graphics.FONT_TINY, "All Time", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(_centerX, 124, Graphics.FONT_TINY, "All Time", Graphics.TEXT_JUSTIFY_CENTER);
 
-        var totalTime = hm.getTotalFocusTime();
-        var avgFlow = hm.getOverallAvgFlowScore();
-        var bestPeak = hm.getBestPeakFlowScore();
+        var totalTime     = hm.getTotalFocusTime();
         var totalSessions = hm.getSessionCount();
 
-        var y = 140;
+        var y = 144;
 
         // Total time
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
@@ -134,7 +112,7 @@ class StatsView extends WatchUi.View {
         dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
                     hm.formatDuration(totalTime), Graphics.TEXT_JUSTIFY_RIGHT);
 
-        y += 22;
+        y += 24;
 
         // Sessions count
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
@@ -142,26 +120,6 @@ class StatsView extends WatchUi.View {
         dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
                     totalSessions.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
-
-        y += 22;
-
-        // Average flow
-        dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(35, y, Graphics.FONT_XTINY, "Avg Flow:", Graphics.TEXT_JUSTIFY_LEFT);
-        dc.setColor(getFlowColor(avgFlow), Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
-                    avgFlow.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
-
-        y += 22;
-
-        // Best peak flow (if available)
-        if (bestPeak > 0) {
-            dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(35, y, Graphics.FONT_XTINY, "Best Peak:", Graphics.TEXT_JUSTIFY_LEFT);
-            dc.setColor(getFlowColor(bestPeak), Graphics.COLOR_TRANSPARENT);
-            dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
-                        bestPeak.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
-        }
     }
 }
 
@@ -179,7 +137,7 @@ class StatsDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
-    //! Handle select button - show session list
+    //! Handle select button — show session list
     function onSelect() as Boolean {
         var historyManager = getApp().getHistoryManager();
         if (historyManager != null && historyManager.getSessionCount() > 0) {
@@ -191,17 +149,12 @@ class StatsDelegate extends WatchUi.BehaviorDelegate {
     }
 }
 
-//! View showing list of individual sessions
+//! View showing list of individual sessions (date + duration)
 class SessionListView extends WatchUi.View {
 
     private var _historyManager as HistoryManager?;
-    private var _scrollOffset as Number = 0;
+    private var _scrollOffset   as Number = 0;
     private const ITEMS_PER_PAGE = 4;
-
-    // Colors
-    private const COLOR_FLOW_LOW = 0xFF4444;
-    private const COLOR_FLOW_MED = 0xFFAA00;
-    private const COLOR_FLOW_HIGH = 0x44FF44;
 
     //! Constructor
     function initialize(historyManager as HistoryManager?) {
@@ -252,52 +205,28 @@ class SessionListView extends WatchUi.View {
         }
     }
 
-    //! Get flow color for score
-    private function getFlowColor(score as Number) as Number {
-        if (score < 40) {
-            return COLOR_FLOW_LOW;
-        } else if (score < 70) {
-            return COLOR_FLOW_MED;
-        } else {
-            return COLOR_FLOW_HIGH;
-        }
-    }
-
-    //! Draw a single session item
+    //! Draw a single session item: date on left, duration on right
     private function drawSessionItem(dc as Dc, session as Dictionary, y as Number) as Void {
         var timestamp = session.hasKey("timestamp") ? (session["timestamp"] as Number) : 0;
-        var duration = session.hasKey("duration") ? (session["duration"] as Number) : 0;
-        var avgFlow = session.hasKey("avgFlowScore") ? (session["avgFlowScore"] as Number) : 0;
+        var duration  = session.hasKey("duration")  ? (session["duration"]  as Number) : 0;
 
         // Format date
         var moment = new Time.Moment(timestamp);
-        var info = Gregorian.info(moment, Time.FORMAT_SHORT);
+        var info   = Gregorian.info(moment, Time.FORMAT_SHORT);
         var dateStr = info.month.toString() + "/" + info.day.toString();
 
-        // Duration
+        // Duration string
         var hm2 = _historyManager;
         var durationStr = (hm2 != null) ? hm2.formatDuration(duration as Number) : "0:00";
 
-        // Draw date
+        // Date
         dc.setColor(0xFFFFFF, Graphics.COLOR_TRANSPARENT);
         dc.drawText(30, y, Graphics.FONT_TINY, dateStr, Graphics.TEXT_JUSTIFY_LEFT);
 
-        // Draw duration
+        // Duration (right-aligned)
         dc.setColor(0xAAAAAA, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(dc.getWidth() / 2, y, Graphics.FONT_TINY, durationStr, Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Draw avg flow with color coding
-        dc.setColor(getFlowColor(avgFlow), Graphics.COLOR_TRANSPARENT);
         dc.drawText(dc.getWidth() - 30, y, Graphics.FONT_TINY,
-                    avgFlow.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
-
-        // Show flow zone percent if available (second line, smaller)
-        var flowPct = session.hasKey("flowZonePercent") ? (session["flowZonePercent"] as Number) : -1;
-        if (flowPct >= 0) {
-            dc.setColor(0x888888, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(dc.getWidth() - 30, y + 18, Graphics.FONT_XTINY,
-                        flowPct.format("%d") + "% flow", Graphics.TEXT_JUSTIFY_RIGHT);
-        }
+                    durationStr, Graphics.TEXT_JUSTIFY_RIGHT);
     }
 
     //! Scroll up
@@ -324,7 +253,7 @@ class SessionListView extends WatchUi.View {
 class SessionListDelegate extends WatchUi.BehaviorDelegate {
 
     private var _historyManager as HistoryManager?;
-    private var _listView as SessionListView?;
+    private var _listView       as SessionListView?;
 
     //! Constructor
     function initialize(historyManager as HistoryManager?) {

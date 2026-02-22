@@ -4,28 +4,22 @@ import Toybox.Sensor;
 import Toybox.SensorHistory;
 import Toybox.System;
 
-//! Manages sensor data collection for Flow Score calculation
+//! Manages sensor data collection for focus quality calculation
 class SensorManager {
 
     private var _flowCalculator as FlowScoreCalculator?;
-    private var _hrvAnalyzer as HrvAnalyzer;
+    private var _hrvAnalyzer    as HrvAnalyzer;
     private var _sensorsEnabled as Boolean = false;
 
     // Current sensor values
-    private var _heartRate as Number = 0;
-    private var _oxygenSaturation as Number = 0;
+    private var _heartRate     as Number = 0;
     private var _accelMagnitude as Number = 0;
-    private var _stress as Number = 0;
-
-    // HR history for stability calculation
-    private var _hrHistory as Array<Number>;
-    private const HR_HISTORY_SIZE = 30;  // 30 seconds of HR data
+    private var _stress        as Number = 0;
 
     //! Constructor
     function initialize(flowCalculator as FlowScoreCalculator?) {
         _flowCalculator = flowCalculator;
-        _hrvAnalyzer = new HrvAnalyzer();
-        _hrHistory = [] as Array<Number>;
+        _hrvAnalyzer    = new HrvAnalyzer();
     }
 
     //! Start sensor data collection
@@ -47,7 +41,7 @@ class SensorManager {
         };
 
         try {
-            Sensor.setEnabledSensors([Sensor.SENSOR_HEARTRATE, Sensor.SENSOR_PULSE_OXIMETRY] as Array<SensorType>);
+            Sensor.setEnabledSensors([Sensor.SENSOR_HEARTRATE] as Array<SensorType>);
             Sensor.enableSensorEvents(method(:onSensorData));
 
             // Register for heart beat intervals (HRV data)
@@ -57,7 +51,6 @@ class SensorManager {
 
             _sensorsEnabled = true;
             _hrvAnalyzer.reset();
-            _hrHistory = [] as Array<Number>;
 
         } catch (ex) {
             System.println("Error enabling sensors: " + ex.getErrorMessage());
@@ -85,22 +78,15 @@ class SensorManager {
 
     //! Sensor event callback (1Hz)
     function onSensorData(sensorInfo as Sensor.Info) as Void {
-        // Heart rate
+        // Heart rate (for display only)
         if (sensorInfo has :heartRate && sensorInfo.heartRate != null) {
             _heartRate = sensorInfo.heartRate as Number;
-            updateHrHistory(_heartRate);
         }
 
-        // Oxygen saturation (SpO2)
-        if (sensorInfo has :oxygenSaturation && sensorInfo.oxygenSaturation != null) {
-            _oxygenSaturation = sensorInfo.oxygenSaturation as Number;
-        }
-
-        // Accelerometer - calculate magnitude
+        // Accelerometer — calculate magnitude
         if (sensorInfo has :accel && sensorInfo.accel != null) {
             var accel = sensorInfo.accel as Array<Number>;
             if (accel.size() >= 3) {
-                // Calculate magnitude: sqrt(x^2 + y^2 + z^2)
                 var x = accel[0];
                 var y = accel[1];
                 var z = accel[2];
@@ -117,7 +103,6 @@ class SensorManager {
 
     //! Sensor data listener callback for HRV data
     function onSensorDataListener(sensorData as Sensor.SensorData) as Void {
-        // Process heart beat intervals for HRV
         if (sensorData has :heartBeatIntervals && sensorData.heartBeatIntervals != null) {
             var intervals = sensorData.heartBeatIntervals;
             if (intervals has :data && intervals.data != null) {
@@ -126,14 +111,6 @@ class SensorManager {
                     _hrvAnalyzer.addInterval(idata[i]);
                 }
             }
-        }
-    }
-
-    //! Update heart rate history for stability calculation
-    private function updateHrHistory(hr as Number) as Void {
-        _hrHistory.add(hr);
-        if (_hrHistory.size() > HR_HISTORY_SIZE) {
-            _hrHistory = _hrHistory.slice(1, null) as Array<Number>;
         }
     }
 
@@ -154,32 +131,8 @@ class SensorManager {
                 }
             }
         } catch (ex) {
-            // Stress history may not be available
+            // Stress history may not be available on all firmware versions
         }
-    }
-
-    //! Calculate HR standard deviation for stability
-    function getHrStdDev() as Float {
-        if (_hrHistory.size() < 2) {
-            return 0.0;
-        }
-
-        // Calculate mean
-        var sum = 0.0;
-        for (var i = 0; i < _hrHistory.size(); i++) {
-            sum += _hrHistory[i];
-        }
-        var mean = sum / _hrHistory.size();
-
-        // Calculate variance
-        var variance = 0.0;
-        for (var i = 0; i < _hrHistory.size(); i++) {
-            var diff = _hrHistory[i] - mean;
-            variance += diff * diff;
-        }
-        variance = variance / _hrHistory.size();
-
-        return Math.sqrt(variance).toFloat();
     }
 
     //! Update flow calculator with current sensor data
@@ -190,22 +143,14 @@ class SensorManager {
 
         _flowCalculator.updateSensorData(
             _hrvAnalyzer.getRmssd(),
-            _heartRate,
-            getHrStdDev(),
             _accelMagnitude,
-            _stress,
-            _oxygenSaturation
+            _stress
         );
     }
 
-    //! Get current heart rate
+    //! Get current heart rate (bpm) — used for quiet display in timer view
     function getHeartRate() as Number {
         return _heartRate;
-    }
-
-    //! Get current SpO2
-    function getOxygenSaturation() as Number {
-        return _oxygenSaturation;
     }
 
     //! Get current accelerometer magnitude
