@@ -51,31 +51,29 @@ class PomoPulseApp extends Application.AppBase {
 
     //! Called when a work phase completes naturally
     function onWorkPhaseComplete() as Void {
-        // Stop recording and show summary
-        var avgFlow = 0;
-        var peakFlow = 0;
-        var flowZonePct = 0;
         var duration = 0;
-        var weakest = "";
+        var hrvScore = 50;
+        var movementScore = 50;
+        var stressScore = 50;
 
         var sm = _sessionManager;
         if (sm != null) {
-            avgFlow = sm.getSessionAvgFlowScore();
-            peakFlow = sm.getSessionPeakFlowScore();
-            flowZonePct = sm.getSessionFlowZonePercent();
             duration = sm.getSessionDuration();
             sm.stopSession();
         }
         if (_sensorManager != null) {
             _sensorManager.stopSensors();
         }
-        if (_flowCalculator != null) {
-            weakest = _flowCalculator.getWeakestComponent();
+        var fc = _flowCalculator;
+        if (fc != null) {
+            hrvScore     = fc.getHrvScore();
+            movementScore = fc.getMovementScore();
+            stressScore  = fc.getStressScore();
         }
 
         // Show summary if meaningful session (at least 30s)
         if (duration >= 30) {
-            var summaryView = new SessionSummaryView(avgFlow, peakFlow, flowZonePct, duration, weakest);
+            var summaryView = new SessionSummaryView(duration, hrvScore, movementScore, stressScore);
             var summaryDelegate = new SessionSummaryDelegate();
             WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
         }

@@ -156,29 +156,28 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
 
     //! Stop recording, save, and show session summary
     private function stopRecordingAndShowSummary() as Void {
-        var avgFlow = 0;
-        var peakFlow = 0;
-        var flowZonePct = 0;
         var duration = 0;
-        var weakest = "";
+        var hrvScore = 50;
+        var movementScore = 50;
+        var stressScore = 50;
 
         var sm = _sessionManager;
         if (sm != null) {
-            avgFlow = sm.getSessionAvgFlowScore();
-            peakFlow = sm.getSessionPeakFlowScore();
-            flowZonePct = sm.getSessionFlowZonePercent();
             duration = sm.getSessionDuration();
         }
 
-        if (_flowCalculator != null) {
-            weakest = _flowCalculator.getWeakestComponent();
+        var fc = _flowCalculator;
+        if (fc != null) {
+            hrvScore      = fc.getHrvScore();
+            movementScore = fc.getMovementScore();
+            stressScore   = fc.getStressScore();
         }
 
         stopRecording();
 
         // Show summary if we have meaningful data (at least 30s of recording)
         if (duration >= 30) {
-            var summaryView = new SessionSummaryView(avgFlow, peakFlow, flowZonePct, duration, weakest);
+            var summaryView = new SessionSummaryView(duration, hrvScore, movementScore, stressScore);
             var summaryDelegate = new SessionSummaryDelegate();
             WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
         }
