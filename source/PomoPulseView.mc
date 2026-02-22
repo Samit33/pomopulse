@@ -69,10 +69,11 @@ class PomoPulseView extends WatchUi.View {
     //! Called every second when timer is running
     function onTimerTick() as Void {
         // Record flow score to FIT file during work sessions
-        if (_timerController != null && _timerController.isRunning() &&
-            _timerController.isWorkState() && _flowCalculator != null &&
-            _sessionManager != null) {
-            _sessionManager.recordFlowScore(_flowCalculator.getFlowScore());
+        var tc = _timerController;
+        var fc = _flowCalculator;
+        var sm = _sessionManager;
+        if (tc != null && tc.isRunning() && tc.isWorkState() && fc != null && sm != null) {
+            sm.recordFlowScore(fc.getFlowScore());
         }
 
         // Update UI
@@ -100,12 +101,14 @@ class PomoPulseView extends WatchUi.View {
 
     //! Draw the circular progress arc
     private function drawProgressArc(dc as Dc) as Void {
-        var progress = _timerController.getProgress();
+        var tc = _timerController;
+        if (tc == null) { return; }
+        var progress = tc.getProgress();
         var arcColor;
 
-        if (_timerController.isBreakState()) {
+        if (tc.isBreakState()) {
             arcColor = COLOR_BREAK;
-        } else if (_timerController.isRunning()) {
+        } else if (tc.isRunning()) {
             arcColor = COLOR_WORK;
         } else {
             arcColor = COLOR_PAUSED;
@@ -171,7 +174,9 @@ class PomoPulseView extends WatchUi.View {
 
     //! Draw the main timer display
     private function drawTimer(dc as Dc) as Void {
-        var timeString = _timerController.getRemainingTimeString();
+        var tc = _timerController;
+        if (tc == null) { return; }
+        var timeString = tc.getRemainingTimeString();
 
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, _centerY - 25, Graphics.FONT_NUMBER_HOT,
@@ -180,12 +185,14 @@ class PomoPulseView extends WatchUi.View {
 
     //! Draw the state label
     private function drawStateLabel(dc as Dc) as Void {
-        var stateLabel = _timerController.getStateLabel();
+        var tc = _timerController;
+        if (tc == null) { return; }
+        var stateLabel = tc.getStateLabel();
         var stateColor;
 
-        if (_timerController.isBreakState()) {
+        if (tc.isBreakState()) {
             stateColor = COLOR_BREAK;
-        } else if (_timerController.isRunning()) {
+        } else if (tc.isRunning()) {
             stateColor = COLOR_WORK;
         } else {
             stateColor = COLOR_PAUSED;
@@ -212,7 +219,9 @@ class PomoPulseView extends WatchUi.View {
 
     //! Draw pomodoro count
     private function drawPomodoroCount(dc as Dc) as Void {
-        var count = _timerController.getPomodorosCompleted();
+        var tc = _timerController;
+        if (tc == null) { return; }
+        var count = tc.getPomodorosCompleted();
 
         // Draw filled circles for completed pomodoros (max 4 displayed)
         var displayCount = count > 4 ? 4 : count;

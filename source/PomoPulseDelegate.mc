@@ -22,17 +22,18 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
 
     //! Handle select button (START/STOP button on FR255)
     function onSelect() as Boolean {
-        if (_timerController == null) {
+        var tc = _timerController;
+        if (tc == null) {
             return false;
         }
 
-        if (_timerController.isRunning()) {
+        if (tc.isRunning()) {
             // Pause timer
-            _timerController.pause();
+            tc.pause();
             stopRecording();
         } else {
             // Start timer
-            _timerController.start();
+            tc.start();
             startRecording();
         }
 
@@ -42,16 +43,17 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
 
     //! Handle back button (LAP/BACK on FR255)
     function onBack() as Boolean {
-        if (_timerController == null) {
+        var tc = _timerController;
+        if (tc == null) {
             return false;
         }
 
         // If running or paused, reset timer
-        if (_timerController.getState() != STATE_IDLE) {
-            if (_timerController.isRunning()) {
+        if (tc.getState() != STATE_IDLE) {
+            if (tc.isRunning()) {
                 stopRecording();
             }
-            _timerController.resetToWork();
+            tc.resetToWork();
             WatchUi.requestUpdate();
             return true;
         }
@@ -80,19 +82,20 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
 
     //! Handle DOWN button press
     function onNextPage() as Boolean {
-        if (_timerController == null) {
+        var tc = _timerController;
+        if (tc == null) {
             return false;
         }
 
         // Skip current phase
-        if (_timerController.isWorkState()) {
+        if (tc.isWorkState()) {
             // Stop recording if running
-            if (_timerController.isRunning()) {
+            if (tc.isRunning()) {
                 stopRecording();
             }
-            _timerController.skipToBreak();
+            tc.skipToBreak();
         } else {
-            _timerController.skipToWork();
+            tc.skipToWork();
             startRecording();
         }
 

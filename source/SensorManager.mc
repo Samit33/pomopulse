@@ -87,18 +87,18 @@ class SensorManager {
     function onSensorData(sensorInfo as Sensor.Info) as Void {
         // Heart rate
         if (sensorInfo has :heartRate && sensorInfo.heartRate != null) {
-            _heartRate = sensorInfo.heartRate;
+            _heartRate = sensorInfo.heartRate as Number;
             updateHrHistory(_heartRate);
         }
 
         // Oxygen saturation (SpO2)
         if (sensorInfo has :oxygenSaturation && sensorInfo.oxygenSaturation != null) {
-            _oxygenSaturation = sensorInfo.oxygenSaturation;
+            _oxygenSaturation = sensorInfo.oxygenSaturation as Number;
         }
 
         // Accelerometer - calculate magnitude
         if (sensorInfo has :accel && sensorInfo.accel != null) {
-            var accel = sensorInfo.accel;
+            var accel = sensorInfo.accel as Array<Number>;
             if (accel.size() >= 3) {
                 // Calculate magnitude: sqrt(x^2 + y^2 + z^2)
                 var x = accel[0];
@@ -121,8 +121,9 @@ class SensorManager {
         if (sensorData has :heartBeatIntervals && sensorData.heartBeatIntervals != null) {
             var intervals = sensorData.heartBeatIntervals;
             if (intervals has :data && intervals.data != null) {
-                for (var i = 0; i < intervals.data.size(); i++) {
-                    _hrvAnalyzer.addInterval(intervals.data[i]);
+                var idata = intervals.data as Array<Number>;
+                for (var i = 0; i < idata.size(); i++) {
+                    _hrvAnalyzer.addInterval(idata[i]);
                 }
             }
         }
@@ -148,7 +149,7 @@ class SensorManager {
                 if (stressIter != null) {
                     var sample = stressIter.next();
                     if (sample != null && sample.data != null) {
-                        _stress = sample.data;
+                        _stress = (sample.data as Number);
                     }
                 }
             }

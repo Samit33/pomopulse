@@ -66,21 +66,23 @@ class StatsView extends WatchUi.View {
 
     //! Draw statistics
     private function drawStats(dc as Dc) as Void {
+        var hm = _historyManager;
+        if (hm == null) { return; }
         // Title
         dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, 25, Graphics.FONT_SMALL,
                     "Focus Stats", Graphics.TEXT_JUSTIFY_CENTER);
 
         // Today's stats
-        var todayTime = _historyManager.getTodayFocusTime();
-        var todaySessions = _historyManager.getTodaySessions();
+        var todayTime = hm.getTodayFocusTime();
+        var todaySessions = hm.getTodaySessions();
 
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, 55, Graphics.FONT_TINY, "Today", Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(COLOR_FLOW_HIGH, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, 75, Graphics.FONT_MEDIUM,
-                    _historyManager.formatDuration(todayTime), Graphics.TEXT_JUSTIFY_CENTER);
+                    hm.formatDuration(todayTime), Graphics.TEXT_JUSTIFY_CENTER);
 
         dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, 100, Graphics.FONT_TINY,
@@ -94,17 +96,17 @@ class StatsView extends WatchUi.View {
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, 135, Graphics.FONT_TINY, "All Time", Graphics.TEXT_JUSTIFY_CENTER);
 
-        var totalTime = _historyManager.getTotalFocusTime();
-        var avgFlow = _historyManager.getOverallAvgFlowScore();
-        var bestFlow = _historyManager.getBestFlowScore();
-        var totalSessions = _historyManager.getSessionCount();
+        var totalTime = hm.getTotalFocusTime();
+        var avgFlow = hm.getOverallAvgFlowScore();
+        var bestFlow = hm.getBestFlowScore();
+        var totalSessions = hm.getSessionCount();
 
         // Total time
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(30, 160, Graphics.FONT_XTINY, "Total:", Graphics.TEXT_JUSTIFY_LEFT);
         dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_screenWidth - 30, 160, Graphics.FONT_XTINY,
-                    _historyManager.formatDuration(totalTime), Graphics.TEXT_JUSTIFY_RIGHT);
+                    hm.formatDuration(totalTime), Graphics.TEXT_JUSTIFY_RIGHT);
 
         // Sessions count
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
@@ -213,17 +215,18 @@ class SessionListView extends WatchUi.View {
 
     //! Draw a single session item
     private function drawSessionItem(dc as Dc, session as Dictionary, y as Number, index as Number) as Void {
-        var timestamp = session.hasKey("timestamp") ? session["timestamp"] : 0;
-        var duration = session.hasKey("duration") ? session["duration"] : 0;
-        var avgFlow = session.hasKey("avgFlowScore") ? session["avgFlowScore"] : 0;
+        var timestamp = session.hasKey("timestamp") ? (session["timestamp"] as Number) : 0;
+        var duration = session.hasKey("duration") ? (session["duration"] as Number) : 0;
+        var avgFlow = session.hasKey("avgFlowScore") ? (session["avgFlowScore"] as Number) : 0;
 
         // Format date
         var moment = new Time.Moment(timestamp);
         var info = Gregorian.info(moment, Time.FORMAT_SHORT);
-        var dateStr = info.month.format("%02d") + "/" + info.day.format("%02d");
+        var dateStr = info.month.toString() + "/" + info.day.toString();
 
         // Duration
-        var durationStr = _historyManager.formatDuration(duration);
+        var hm2 = _historyManager;
+        var durationStr = (hm2 != null) ? hm2.formatDuration(duration as Number) : "0:00";
 
         // Draw
         dc.setColor(0xFFFFFF, Graphics.COLOR_TRANSPARENT);

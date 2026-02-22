@@ -37,15 +37,15 @@ class TimerController {
 
     //! Constructor
     function initialize() {
-        _workDuration = loadSetting("workDuration", DEFAULT_WORK_DURATION);
-        _shortBreakDuration = loadSetting("shortBreakDuration", DEFAULT_SHORT_BREAK);
-        _longBreakDuration = loadSetting("longBreakDuration", DEFAULT_LONG_BREAK);
-        _autoStartBreak = loadSetting("autoStartBreak", false);
+        _workDuration = loadSetting("workDuration", DEFAULT_WORK_DURATION) as Number;
+        _shortBreakDuration = loadSetting("shortBreakDuration", DEFAULT_SHORT_BREAK) as Number;
+        _longBreakDuration = loadSetting("longBreakDuration", DEFAULT_LONG_BREAK) as Number;
+        _autoStartBreak = loadSetting("autoStartBreak", false) as Boolean;
         resetToWork();
     }
 
     //! Load a setting with default fallback
-    private function loadSetting(key as String, defaultValue) {
+    private function loadSetting(key as String, defaultValue as Application.PropertyValueType) as Application.PropertyValueType {
         var value = Application.Properties.getValue(key);
         if (value != null) {
             return value;

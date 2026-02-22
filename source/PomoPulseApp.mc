@@ -38,10 +38,10 @@ class PomoPulseApp extends Application.AppBase {
     }
 
     //! Return the initial view of your application
-    function getInitialView() as Array<Views or InputDelegates>? {
+    function getInitialView() as [Views] or [Views, InputDelegates] {
         var view = new PomoPulseView(_timerController, _flowCalculator, _sensorManager, _sessionManager);
         var delegate = new PomoPulseDelegate(_timerController, _sensorManager, _sessionManager, view);
-        return [view, delegate] as Array<Views or InputDelegates>;
+        return [view, delegate];
     }
 
     //! Get the timer controller instance

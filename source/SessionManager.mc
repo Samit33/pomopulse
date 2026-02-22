@@ -116,9 +116,10 @@ class SessionManager {
             _session.save();
 
             // Save to local history
-            if (_historyManager != null && durationSeconds > 0) {
+            var startTime = _sessionStartTime;
+            if (_historyManager != null && durationSeconds > 0 && startTime != null) {
                 _historyManager.saveSession({
-                    "timestamp" => _sessionStartTime.value(),
+                    "timestamp" => startTime.value(),
                     "duration" => durationSeconds,
                     "avgFlowScore" => avgFlowScore,
                     "samples" => _flowScoreSamples

@@ -1,3 +1,4 @@
+import Toybox.Application;
 import Toybox.Application.Storage;
 import Toybox.Lang;
 import Toybox.System;
@@ -35,7 +36,7 @@ class HistoryManager {
     //! Save session history to storage
     private function saveHistory() as Void {
         try {
-            Storage.setValue(HISTORY_KEY, _sessions);
+            Storage.setValue(HISTORY_KEY, _sessions as Application.PropertyValueType);
         } catch (ex) {
             System.println("Error saving history: " + ex.getErrorMessage());
         }
@@ -88,7 +89,7 @@ class HistoryManager {
         for (var i = 0; i < _sessions.size(); i++) {
             var session = _sessions[i];
             if (session.hasKey("duration")) {
-                total += session["duration"];
+                total += (session["duration"] as Number);
             }
         }
         return total;
@@ -106,8 +107,8 @@ class HistoryManager {
         for (var i = 0; i < _sessions.size(); i++) {
             var session = _sessions[i];
             if (session.hasKey("avgFlowScore") && session.hasKey("samples")) {
-                totalWeighted += session["avgFlowScore"] * session["samples"];
-                totalSamples += session["samples"];
+                totalWeighted += (session["avgFlowScore"] as Number) * (session["samples"] as Number);
+                totalSamples += (session["samples"] as Number);
             }
         }
 
@@ -128,7 +129,7 @@ class HistoryManager {
         for (var i = 0; i < _sessions.size(); i++) {
             var session = _sessions[i];
             if (session.hasKey("avgFlowScore")) {
-                var score = session["avgFlowScore"];
+                var score = session["avgFlowScore"] as Number;
                 if (score > best) {
                     best = score;
                 }
@@ -151,7 +152,7 @@ class HistoryManager {
         for (var i = 0; i < _sessions.size(); i++) {
             var session = _sessions[i];
             if (session.hasKey("timestamp")) {
-                var sessionTime = new Time.Moment(session["timestamp"]);
+                var sessionTime = new Time.Moment(session["timestamp"] as Number);
                 var sessionDate = Gregorian.info(sessionTime, Time.FORMAT_SHORT);
 
                 if (sessionDate.year == today.year &&
@@ -173,7 +174,7 @@ class HistoryManager {
         for (var i = 0; i < todaySessions.size(); i++) {
             var session = todaySessions[i];
             if (session.hasKey("duration")) {
-                total += session["duration"];
+                total += (session["duration"] as Number);
             }
         }
 

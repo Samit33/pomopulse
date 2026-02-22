@@ -32,14 +32,15 @@ class SettingsMenuDelegate extends WatchUi.Menu2InputDelegate {
 
     //! Handle menu item selection
     function onSelect(item as WatchUi.MenuItem) as Void {
+        var tc = _timerController;
         var id = item.getId();
 
-        if (id == :workDuration) {
-            showDurationPicker("Work Duration", _timerController.getWorkDurationMinutes(), :workDuration);
-        } else if (id == :shortBreak) {
-            showDurationPicker("Short Break", _timerController.getShortBreakDurationMinutes(), :shortBreak);
-        } else if (id == :longBreak) {
-            showDurationPicker("Long Break", _timerController.getLongBreakDurationMinutes(), :longBreak);
+        if (id == :workDuration && tc != null) {
+            showDurationPicker("Work Duration", tc.getWorkDurationMinutes(), :workDuration);
+        } else if (id == :shortBreak && tc != null) {
+            showDurationPicker("Short Break", tc.getShortBreakDurationMinutes(), :shortBreak);
+        } else if (id == :longBreak && tc != null) {
+            showDurationPicker("Long Break", tc.getLongBreakDurationMinutes(), :longBreak);
         } else if (id == :autoStart) {
             toggleAutoStart();
         } else if (id == :clearHistory) {
@@ -56,9 +57,10 @@ class SettingsMenuDelegate extends WatchUi.Menu2InputDelegate {
 
     //! Toggle auto-start break setting
     private function toggleAutoStart() as Void {
-        if (_timerController != null) {
-            var current = _timerController.getAutoStartBreak();
-            _timerController.setAutoStartBreak(!current);
+        var tc = _timerController;
+        if (tc != null) {
+            var current = tc.getAutoStartBreak();
+            tc.setAutoStartBreak(!current);
             WatchUi.popView(WatchUi.SLIDE_RIGHT);
         }
     }
