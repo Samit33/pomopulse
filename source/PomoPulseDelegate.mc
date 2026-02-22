@@ -8,15 +8,18 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
     private var _timerController as TimerController?;
     private var _sensorManager as SensorManager?;
     private var _sessionManager as SessionManager?;
+    private var _flowCalculator as FlowScoreCalculator?;
     private var _view as PomoPulseView?;
 
     //! Constructor
     function initialize(timerController as TimerController?, sensorManager as SensorManager?,
-                       sessionManager as SessionManager?, view as PomoPulseView?) {
+                       sessionManager as SessionManager?, flowCalculator as FlowScoreCalculator?,
+                       view as PomoPulseView?) {
         BehaviorDelegate.initialize();
         _timerController = timerController;
         _sensorManager = sensorManager;
         _sessionManager = sessionManager;
+        _flowCalculator = flowCalculator;
         _view = view;
     }
 
@@ -28,13 +31,20 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
         }
 
         if (tc.isRunning()) {
-            // Pause timer
+            // Pause timer - pause recording but keep session alive
             tc.pause();
-            stopRecording();
+            pauseRecording();
         } else {
-            // Start timer
-            tc.start();
-            startRecording();
+            // Start/resume timer
+            if (tc.getState() == STATE_IDLE) {
+                // Fresh start - begin new recording
+                tc.start();
+                startRecording();
+            } else {
+                // Resuming from pause - resume existing recording
+                tc.start();
+                resumeRecording();
+            }
         }
 
         WatchUi.requestUpdate();
@@ -48,12 +58,14 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
             return false;
         }
 
-        // If running or paused, reset timer
+        // If running or paused, stop and reset
         if (tc.getState() != STATE_IDLE) {
-            if (tc.isRunning()) {
-                stopRecording();
-            }
+            // Stop any active recording/sensors
+            stopRecording();
             tc.resetToWork();
+            if (_flowCalculator != null) {
+                _flowCalculator.reset();
+            }
             WatchUi.requestUpdate();
             return true;
         }
@@ -64,7 +76,6 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
 
     //! Handle menu button (UP button long press)
     function onMenu() as Boolean {
-        // Open settings menu
         var menu = new SettingsMenu();
         var delegate = new SettingsMenuDelegate(_timerController);
         WatchUi.pushView(menu, delegate, WatchUi.SLIDE_UP);
@@ -73,7 +84,6 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
 
     //! Handle UP button press
     function onPreviousPage() as Boolean {
-        // Show stats view
         var statsView = new StatsView(getApp().getHistoryManager());
         var statsDelegate = new StatsDelegate();
         WatchUi.pushView(statsView, statsDelegate, WatchUi.SLIDE_UP);
@@ -89,21 +99,23 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
 
         // Skip current phase
         if (tc.isWorkState()) {
-            // Stop recording if running
-            if (tc.isRunning()) {
-                stopRecording();
+            if (tc.isRunning() || tc.getState() == STATE_WORK_PAUSED) {
+                stopRecordingAndShowSummary();
             }
             tc.skipToBreak();
         } else {
             tc.skipToWork();
-            startRecording();
+            if (_flowCalculator != null) {
+                _flowCalculator.reset();
+            }
+            // Don't start recording - user presses START to begin next session
         }
 
         WatchUi.requestUpdate();
         return true;
     }
 
-    //! Start recording session
+    //! Start recording session and sensors
     private function startRecording() as Void {
         if (_sensorManager != null) {
             _sensorManager.startSensors();
@@ -113,7 +125,25 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
         }
     }
 
-    //! Stop recording session
+    //! Pause recording (keep session alive, pause sensors)
+    private function pauseRecording() as Void {
+        if (_sessionManager != null) {
+            _sessionManager.pauseSession();
+        }
+        // Keep sensors running but the session won't record data
+    }
+
+    //! Resume recording
+    private function resumeRecording() as Void {
+        if (_sensorManager != null && !_sensorManager.areSensorsEnabled()) {
+            _sensorManager.startSensors();
+        }
+        if (_sessionManager != null) {
+            _sessionManager.resumeSession();
+        }
+    }
+
+    //! Stop recording and save session
     private function stopRecording() as Void {
         if (_sessionManager != null) {
             _sessionManager.stopSession();
@@ -121,5 +151,39 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
         if (_sensorManager != null) {
             _sensorManager.stopSensors();
         }
+    }
+
+    //! Stop recording, save, and show session summary
+    private function stopRecordingAndShowSummary() as Void {
+        var avgFlow = 0;
+        var peakFlow = 0;
+        var flowZonePct = 0;
+        var duration = 0;
+        var weakest = "";
+
+        if (_sessionManager != null) {
+            avgFlow = _sessionManager.getSessionAvgFlowScore();
+            peakFlow = _sessionManager.getSessionPeakFlowScore();
+            flowZonePct = _sessionManager.getSessionFlowZonePercent();
+            duration = _sessionManager.getSessionDuration();
+        }
+
+        if (_flowCalculator != null) {
+            weakest = _flowCalculator.getWeakestComponent();
+        }
+
+        stopRecording();
+
+        // Show summary if we have meaningful data (at least 30s of recording)
+        if (duration >= 30) {
+            var summaryView = new SessionSummaryView(avgFlow, peakFlow, flowZonePct, duration, weakest);
+            var summaryDelegate = new SessionSummaryDelegate();
+            WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
+        }
+    }
+
+    //! Called by TimerController when a work phase completes naturally
+    function onWorkPhaseComplete() as Void {
+        stopRecordingAndShowSummary();
     }
 }

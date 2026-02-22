@@ -28,6 +28,7 @@ class TimerController {
     private var _totalSeconds as Number = 0;
     private var _pomodorosCompleted as Number = 0;
     private var _callback as Method?;
+    private var _workCompleteCallback as Method?;
 
     // Configurable durations
     private var _workDuration as Number;
@@ -56,6 +57,11 @@ class TimerController {
     //! Set the tick callback for UI updates
     function setCallback(callback as Method?) as Void {
         _callback = callback;
+    }
+
+    //! Set callback for when work phase completes naturally
+    function setWorkCompleteCallback(callback as Method?) as Void {
+        _workCompleteCallback = callback;
     }
 
     //! Start the timer
@@ -152,6 +158,12 @@ class TimerController {
 
         if (_state == STATE_WORK) {
             _pomodorosCompleted++;
+
+            // Notify that work phase completed (triggers session summary)
+            if (_workCompleteCallback != null) {
+                _workCompleteCallback.invoke();
+            }
+
             if (_autoStartBreak) {
                 startBreak();
             } else {

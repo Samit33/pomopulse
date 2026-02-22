@@ -166,6 +166,50 @@ class HistoryManager {
         return todaySessions;
     }
 
+    //! Get today's average flow score (weighted by samples)
+    function getTodayAvgFlowScore() as Number {
+        var todaySessions = getTodaySessions();
+        if (todaySessions.size() == 0) {
+            return 0;
+        }
+
+        var totalWeighted = 0;
+        var totalSamples = 0;
+
+        for (var i = 0; i < todaySessions.size(); i++) {
+            var session = todaySessions[i];
+            if (session.hasKey("avgFlowScore") && session.hasKey("samples")) {
+                totalWeighted += (session["avgFlowScore"] as Number) * (session["samples"] as Number);
+                totalSamples += (session["samples"] as Number);
+            }
+        }
+
+        if (totalSamples == 0) {
+            return 0;
+        }
+
+        return totalWeighted / totalSamples;
+    }
+
+    //! Get best peak flow score from any session
+    function getBestPeakFlowScore() as Number {
+        if (_sessions == null || _sessions.size() == 0) {
+            return 0;
+        }
+
+        var best = 0;
+        for (var i = 0; i < _sessions.size(); i++) {
+            var session = _sessions[i];
+            if (session.hasKey("peakFlowScore")) {
+                var score = session["peakFlowScore"] as Number;
+                if (score > best) {
+                    best = score;
+                }
+            }
+        }
+        return best;
+    }
+
     //! Get today's total focus time
     function getTodayFocusTime() as Number {
         var todaySessions = getTodaySessions();

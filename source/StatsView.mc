@@ -21,6 +21,8 @@ class StatsView extends WatchUi.View {
     private const COLOR_TEXT = 0xFFFFFF;
     private const COLOR_TEXT_DIM = 0xAAAAAA;
     private const COLOR_ACCENT = 0x44AAFF;
+    private const COLOR_FLOW_LOW = 0xFF4444;
+    private const COLOR_FLOW_MED = 0xFFAA00;
     private const COLOR_FLOW_HIGH = 0x44FF44;
 
     //! Constructor
@@ -39,7 +41,6 @@ class StatsView extends WatchUi.View {
 
     //! Update the view
     function onUpdate(dc as Dc) as Void {
-        // Clear screen
         dc.setColor(COLOR_BG, COLOR_BG);
         dc.clear();
 
@@ -64,70 +65,113 @@ class StatsView extends WatchUi.View {
                     "No sessions yet", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
+    //! Get flow color for a given score
+    private function getFlowColor(score as Number) as Number {
+        if (score < 40) {
+            return COLOR_FLOW_LOW;
+        } else if (score < 70) {
+            return COLOR_FLOW_MED;
+        } else {
+            return COLOR_FLOW_HIGH;
+        }
+    }
+
     //! Draw statistics
     private function drawStats(dc as Dc) as Void {
         var hm = _historyManager;
         if (hm == null) { return; }
+
         // Title
         dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, 25, Graphics.FONT_SMALL,
                     "Focus Stats", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Today's stats
+        // --- Today section ---
         var todayTime = hm.getTodayFocusTime();
         var todaySessions = hm.getTodaySessions();
+        var todayAvgFlow = hm.getTodayAvgFlowScore();
 
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 55, Graphics.FONT_TINY, "Today", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(_centerX, 50, Graphics.FONT_TINY, "Today", Graphics.TEXT_JUSTIFY_CENTER);
 
+        // Today: focus time and flow score side by side
         dc.setColor(COLOR_FLOW_HIGH, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 75, Graphics.FONT_MEDIUM,
-                    hm.formatDuration(todayTime), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(_centerX - 25, 70, Graphics.FONT_MEDIUM,
+                    hm.formatDuration(todayTime), Graphics.TEXT_JUSTIFY_RIGHT);
+
+        if (todayAvgFlow > 0) {
+            dc.setColor(getFlowColor(todayAvgFlow), Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_centerX + 25, 70, Graphics.FONT_MEDIUM,
+                        todayAvgFlow.format("%d"), Graphics.TEXT_JUSTIFY_LEFT);
+            dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_centerX, 70, Graphics.FONT_XTINY,
+                        "|", Graphics.TEXT_JUSTIFY_CENTER);
+        }
 
         dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 100, Graphics.FONT_TINY,
+        dc.drawText(_centerX, 95, Graphics.FONT_XTINY,
                     todaySessions.size().format("%d") + " sessions", Graphics.TEXT_JUSTIFY_CENTER);
 
         // Divider
         dc.setColor(0x333333, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(50, 120, _screenWidth - 50, 120);
+        dc.drawLine(50, 112, _screenWidth - 50, 112);
 
-        // All-time stats
+        // --- All-time section ---
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 135, Graphics.FONT_TINY, "All Time", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(_centerX, 120, Graphics.FONT_TINY, "All Time", Graphics.TEXT_JUSTIFY_CENTER);
 
         var totalTime = hm.getTotalFocusTime();
         var avgFlow = hm.getOverallAvgFlowScore();
         var bestFlow = hm.getBestFlowScore();
+        var bestPeak = hm.getBestPeakFlowScore();
         var totalSessions = hm.getSessionCount();
+
+        var y = 140;
 
         // Total time
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(30, 160, Graphics.FONT_XTINY, "Total:", Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(35, y, Graphics.FONT_XTINY, "Total:", Graphics.TEXT_JUSTIFY_LEFT);
         dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_screenWidth - 30, 160, Graphics.FONT_XTINY,
+        dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
                     hm.formatDuration(totalTime), Graphics.TEXT_JUSTIFY_RIGHT);
+
+        y += 18;
 
         // Sessions count
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(30, 180, Graphics.FONT_XTINY, "Sessions:", Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(35, y, Graphics.FONT_XTINY, "Sessions:", Graphics.TEXT_JUSTIFY_LEFT);
         dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_screenWidth - 30, 180, Graphics.FONT_XTINY,
+        dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
                     totalSessions.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
+
+        y += 18;
 
         // Average flow
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(30, 200, Graphics.FONT_XTINY, "Avg Flow:", Graphics.TEXT_JUSTIFY_LEFT);
-        dc.setColor(COLOR_FLOW_HIGH, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_screenWidth - 30, 200, Graphics.FONT_XTINY,
+        dc.drawText(35, y, Graphics.FONT_XTINY, "Avg Flow:", Graphics.TEXT_JUSTIFY_LEFT);
+        dc.setColor(getFlowColor(avgFlow), Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
                     avgFlow.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
 
-        // Best flow
+        y += 18;
+
+        // Best avg flow
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(30, 220, Graphics.FONT_XTINY, "Best Flow:", Graphics.TEXT_JUSTIFY_LEFT);
-        dc.setColor(COLOR_FLOW_HIGH, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_screenWidth - 30, 220, Graphics.FONT_XTINY,
+        dc.drawText(35, y, Graphics.FONT_XTINY, "Best Avg:", Graphics.TEXT_JUSTIFY_LEFT);
+        dc.setColor(getFlowColor(bestFlow), Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
                     bestFlow.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
+
+        y += 18;
+
+        // Best peak flow (if available)
+        if (bestPeak > 0) {
+            dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(35, y, Graphics.FONT_XTINY, "Best Peak:", Graphics.TEXT_JUSTIFY_LEFT);
+            dc.setColor(getFlowColor(bestPeak), Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
+                        bestPeak.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
+        }
     }
 }
 
@@ -164,6 +208,11 @@ class SessionListView extends WatchUi.View {
     private var _scrollOffset as Number = 0;
     private const ITEMS_PER_PAGE = 4;
 
+    // Colors
+    private const COLOR_FLOW_LOW = 0xFF4444;
+    private const COLOR_FLOW_MED = 0xFFAA00;
+    private const COLOR_FLOW_HIGH = 0x44FF44;
+
     //! Constructor
     function initialize(historyManager as HistoryManager?) {
         View.initialize();
@@ -198,7 +247,7 @@ class SessionListView extends WatchUi.View {
 
         for (var i = _scrollOffset; i < endIndex; i++) {
             var session = sessions[i] as Dictionary;
-            drawSessionItem(dc, session, y, i);
+            drawSessionItem(dc, session, y);
             y += 45;
         }
 
@@ -213,8 +262,19 @@ class SessionListView extends WatchUi.View {
         }
     }
 
+    //! Get flow color for score
+    private function getFlowColor(score as Number) as Number {
+        if (score < 40) {
+            return COLOR_FLOW_LOW;
+        } else if (score < 70) {
+            return COLOR_FLOW_MED;
+        } else {
+            return COLOR_FLOW_HIGH;
+        }
+    }
+
     //! Draw a single session item
-    private function drawSessionItem(dc as Dc, session as Dictionary, y as Number, index as Number) as Void {
+    private function drawSessionItem(dc as Dc, session as Dictionary, y as Number) as Void {
         var timestamp = session.hasKey("timestamp") ? (session["timestamp"] as Number) : 0;
         var duration = session.hasKey("duration") ? (session["duration"] as Number) : 0;
         var avgFlow = session.hasKey("avgFlowScore") ? (session["avgFlowScore"] as Number) : 0;
@@ -228,16 +288,26 @@ class SessionListView extends WatchUi.View {
         var hm2 = _historyManager;
         var durationStr = (hm2 != null) ? hm2.formatDuration(duration as Number) : "0:00";
 
-        // Draw
+        // Draw date
         dc.setColor(0xFFFFFF, Graphics.COLOR_TRANSPARENT);
         dc.drawText(30, y, Graphics.FONT_TINY, dateStr, Graphics.TEXT_JUSTIFY_LEFT);
 
+        // Draw duration
         dc.setColor(0xAAAAAA, Graphics.COLOR_TRANSPARENT);
         dc.drawText(dc.getWidth() / 2, y, Graphics.FONT_TINY, durationStr, Graphics.TEXT_JUSTIFY_CENTER);
 
-        dc.setColor(0x44FF44, Graphics.COLOR_TRANSPARENT);
+        // Draw avg flow with color coding
+        dc.setColor(getFlowColor(avgFlow), Graphics.COLOR_TRANSPARENT);
         dc.drawText(dc.getWidth() - 30, y, Graphics.FONT_TINY,
-                    "F:" + avgFlow.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
+                    avgFlow.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
+
+        // Show flow zone percent if available (second line, smaller)
+        var flowPct = session.hasKey("flowZonePercent") ? (session["flowZonePercent"] as Number) : -1;
+        if (flowPct >= 0) {
+            dc.setColor(0x888888, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(dc.getWidth() - 30, y + 18, Graphics.FONT_XTINY,
+                        flowPct.format("%d") + "% flow", Graphics.TEXT_JUSTIFY_RIGHT);
+        }
     }
 
     //! Scroll up

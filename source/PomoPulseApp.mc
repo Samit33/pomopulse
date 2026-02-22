@@ -19,7 +19,6 @@ class PomoPulseApp extends Application.AppBase {
 
     //! Called on application start
     function onStart(state as Dictionary?) as Void {
-        // Initialize managers
         _historyManager = new HistoryManager();
         _timerController = new TimerController();
         _flowCalculator = new FlowScoreCalculator();
@@ -40,8 +39,45 @@ class PomoPulseApp extends Application.AppBase {
     //! Return the initial view of your application
     function getInitialView() as [Views] or [Views, InputDelegates] {
         var view = new PomoPulseView(_timerController, _flowCalculator, _sensorManager, _sessionManager);
-        var delegate = new PomoPulseDelegate(_timerController, _sensorManager, _sessionManager, view);
+        var delegate = new PomoPulseDelegate(_timerController, _sensorManager, _sessionManager, _flowCalculator, view);
+
+        // Wire up work-complete callback so delegate can show summary
+        if (_timerController != null) {
+            _timerController.setWorkCompleteCallback(method(:onWorkPhaseComplete));
+        }
+
         return [view, delegate];
+    }
+
+    //! Called when a work phase completes naturally
+    function onWorkPhaseComplete() as Void {
+        // Stop recording and show summary
+        var avgFlow = 0;
+        var peakFlow = 0;
+        var flowZonePct = 0;
+        var duration = 0;
+        var weakest = "";
+
+        if (_sessionManager != null) {
+            avgFlow = _sessionManager.getSessionAvgFlowScore();
+            peakFlow = _sessionManager.getSessionPeakFlowScore();
+            flowZonePct = _sessionManager.getSessionFlowZonePercent();
+            duration = _sessionManager.getSessionDuration();
+            _sessionManager.stopSession();
+        }
+        if (_sensorManager != null) {
+            _sensorManager.stopSensors();
+        }
+        if (_flowCalculator != null) {
+            weakest = _flowCalculator.getWeakestComponent();
+        }
+
+        // Show summary if meaningful session (at least 30s)
+        if (duration >= 30) {
+            var summaryView = new SessionSummaryView(avgFlow, peakFlow, flowZonePct, duration, weakest);
+            var summaryDelegate = new SessionSummaryDelegate();
+            WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
+        }
     }
 
     //! Get the timer controller instance
