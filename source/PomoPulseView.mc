@@ -121,8 +121,18 @@ class PomoPulseView extends WatchUi.View {
         drawProgressArc(dc);
         drawPomodoroCount(dc);
         drawTimer(dc);
-        drawStateLabel(dc);
+        drawBreakTypeLabel(dc);
         drawBreakSessionSummary(dc);
+    }
+
+    //! Draw "Short Break" or "Long Break" label
+    private function drawBreakTypeLabel(dc as Dc) as Void {
+        var tc = _timerController;
+        if (tc == null) { return; }
+        var label = tc.isLongBreak() ? "Long Break" : "Short Break";
+        dc.setColor(COLOR_BREAK, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_centerX, _centerY + 20, Graphics.FONT_SMALL,
+                    label, Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     //! Draw the circular progress arc, colored by flow state during work
@@ -241,34 +251,42 @@ class PomoPulseView extends WatchUi.View {
     private function drawBreakSessionSummary(dc as Dc) as Void {
         var fc = _flowCalculator;
         var sm = _sessionManager;
-        if (fc == null || sm == null) { return; }
+        var tc = _timerController;
+        if (sm == null || tc == null) { return; }
 
         var avgFlow = sm.getSessionAvgFlowScore();
-        var peakFlow = fc.getPeakScore();
-        var flowPct = fc.getFlowZonePercent();
+        var peakFlow = fc != null ? fc.getPeakScore() : 0;
 
-        // Only show if we have data from the completed work session
-        if (avgFlow <= 0 && peakFlow <= 0) { return; }
+        // No flow data yet — show which pomodoro was just completed
+        if (avgFlow <= 0 && peakFlow <= 0) {
+            var count = tc.getPomodorosCompleted();
+            dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_centerX, _centerY + 52, Graphics.FONT_XTINY,
+                        "#" + count.format("%d") + " done - Rest up!",
+                        Graphics.TEXT_JUSTIFY_CENTER);
+            return;
+        }
 
-        var y = _centerY + 30;
+        // Flow data available — show avg / peak side by side, then zone %
+        var y = _centerY + 52;
 
-        // Avg flow
         dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX - 40, y, Graphics.FONT_XTINY, "Avg", Graphics.TEXT_JUSTIFY_RIGHT);
         dc.setColor(getFlowColor(avgFlow), Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX - 35, y, Graphics.FONT_XTINY, avgFlow.format("%d"), Graphics.TEXT_JUSTIFY_LEFT);
 
-        // Peak flow
         dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX + 20, y, Graphics.FONT_XTINY, "Peak", Graphics.TEXT_JUSTIFY_RIGHT);
-        dc.setColor(getFlowColor(peakFlow), Graphics.COLOR_TRANSPARENT);
+        dc.setColor(fc != null ? getFlowColor(peakFlow) : COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX + 25, y, Graphics.FONT_XTINY, peakFlow.format("%d"), Graphics.TEXT_JUSTIFY_LEFT);
 
-        // Flow zone percentage
-        if (flowPct > 0) {
-            dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(_centerX, y + 18, Graphics.FONT_XTINY,
-                        flowPct.format("%d") + "% in Flow", Graphics.TEXT_JUSTIFY_CENTER);
+        if (fc != null) {
+            var flowPct = fc.getFlowZonePercent();
+            if (flowPct > 0) {
+                dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+                dc.drawText(_centerX, y + 18, Graphics.FONT_XTINY,
+                            flowPct.format("%d") + "% in Flow", Graphics.TEXT_JUSTIFY_CENTER);
+            }
         }
     }
 

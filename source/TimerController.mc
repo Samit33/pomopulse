@@ -280,6 +280,11 @@ class TimerController {
         return _pomodorosCompleted;
     }
 
+    //! Returns true if the current break is a long break
+    function isLongBreak() as Boolean {
+        return _totalSeconds == _longBreakDuration;
+    }
+
     //! Update work duration setting
     function setWorkDuration(minutes as Number) as Void {
         _workDuration = minutes * 60;

@@ -122,7 +122,6 @@ class StatsView extends WatchUi.View {
 
         var totalTime = hm.getTotalFocusTime();
         var avgFlow = hm.getOverallAvgFlowScore();
-        var bestFlow = hm.getBestFlowScore();
         var bestPeak = hm.getBestPeakFlowScore();
         var totalSessions = hm.getSessionCount();
 
@@ -135,7 +134,7 @@ class StatsView extends WatchUi.View {
         dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
                     hm.formatDuration(totalTime), Graphics.TEXT_JUSTIFY_RIGHT);
 
-        y += 18;
+        y += 22;
 
         // Sessions count
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
@@ -144,7 +143,7 @@ class StatsView extends WatchUi.View {
         dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
                     totalSessions.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
 
-        y += 18;
+        y += 22;
 
         // Average flow
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
@@ -153,16 +152,7 @@ class StatsView extends WatchUi.View {
         dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
                     avgFlow.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
 
-        y += 18;
-
-        // Best avg flow
-        dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(35, y, Graphics.FONT_XTINY, "Best Avg:", Graphics.TEXT_JUSTIFY_LEFT);
-        dc.setColor(getFlowColor(bestFlow), Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
-                    bestFlow.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
-
-        y += 18;
+        y += 22;
 
         // Best peak flow (if available)
         if (bestPeak > 0) {
