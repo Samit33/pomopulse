@@ -213,9 +213,9 @@ class SessionListView extends WatchUi.View {
 
     //! Draw a single session item
     private function drawSessionItem(dc as Dc, session as Dictionary, y as Number, index as Number) as Void {
-        var timestamp = session.hasKey(:timestamp) ? session[:timestamp] : 0;
-        var duration = session.hasKey(:duration) ? session[:duration] : 0;
-        var avgFlow = session.hasKey(:avgFlowScore) ? session[:avgFlowScore] : 0;
+        var timestamp = session.hasKey("timestamp") ? session["timestamp"] : 0;
+        var duration = session.hasKey("duration") ? session["duration"] : 0;
+        var avgFlow = session.hasKey("avgFlowScore") ? session["avgFlowScore"] : 0;
 
         // Format date
         var moment = new Time.Moment(timestamp);

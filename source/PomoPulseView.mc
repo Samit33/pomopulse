@@ -36,6 +36,12 @@ class PomoPulseView extends WatchUi.View {
         _flowCalculator = flowCalculator;
         _sensorManager = sensorManager;
         _sessionManager = sessionManager;
+        // Initialize screen dimensions eagerly so onUpdate is safe before onLayout fires
+        var settings = System.getDeviceSettings();
+        _screenWidth = settings.screenWidth;
+        _screenHeight = settings.screenHeight;
+        _centerX = _screenWidth / 2;
+        _centerY = _screenHeight / 2;
     }
 
     //! Load resources
@@ -149,7 +155,7 @@ class PomoPulseView extends WatchUi.View {
         // Score label
         dc.setColor(fillColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(gaugeX + gaugeWidth / 2, gaugeTop - 20, Graphics.FONT_TINY,
-                    flowScore.format("%d"), Graphics.TEXT_JUSTIFY_CENTER);
+                    flowScore.toString(), Graphics.TEXT_JUSTIFY_CENTER);
     }
 
     //! Get color based on flow score

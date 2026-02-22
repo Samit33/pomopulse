@@ -87,8 +87,8 @@ class HistoryManager {
         var total = 0;
         for (var i = 0; i < _sessions.size(); i++) {
             var session = _sessions[i];
-            if (session.hasKey(:duration)) {
-                total += session[:duration];
+            if (session.hasKey("duration")) {
+                total += session["duration"];
             }
         }
         return total;
@@ -105,9 +105,9 @@ class HistoryManager {
 
         for (var i = 0; i < _sessions.size(); i++) {
             var session = _sessions[i];
-            if (session.hasKey(:avgFlowScore) && session.hasKey(:samples)) {
-                totalWeighted += session[:avgFlowScore] * session[:samples];
-                totalSamples += session[:samples];
+            if (session.hasKey("avgFlowScore") && session.hasKey("samples")) {
+                totalWeighted += session["avgFlowScore"] * session["samples"];
+                totalSamples += session["samples"];
             }
         }
 
@@ -127,8 +127,8 @@ class HistoryManager {
         var best = 0;
         for (var i = 0; i < _sessions.size(); i++) {
             var session = _sessions[i];
-            if (session.hasKey(:avgFlowScore)) {
-                var score = session[:avgFlowScore];
+            if (session.hasKey("avgFlowScore")) {
+                var score = session["avgFlowScore"];
                 if (score > best) {
                     best = score;
                 }
@@ -150,8 +150,8 @@ class HistoryManager {
 
         for (var i = 0; i < _sessions.size(); i++) {
             var session = _sessions[i];
-            if (session.hasKey(:timestamp)) {
-                var sessionTime = new Time.Moment(session[:timestamp]);
+            if (session.hasKey("timestamp")) {
+                var sessionTime = new Time.Moment(session["timestamp"]);
                 var sessionDate = Gregorian.info(sessionTime, Time.FORMAT_SHORT);
 
                 if (sessionDate.year == today.year &&
@@ -172,8 +172,8 @@ class HistoryManager {
 
         for (var i = 0; i < todaySessions.size(); i++) {
             var session = todaySessions[i];
-            if (session.hasKey(:duration)) {
-                total += session[:duration];
+            if (session.hasKey("duration")) {
+                total += session["duration"];
             }
         }
 

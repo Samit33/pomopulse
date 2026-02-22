@@ -118,10 +118,10 @@ class SessionManager {
             // Save to local history
             if (_historyManager != null && durationSeconds > 0) {
                 _historyManager.saveSession({
-                    :timestamp => _sessionStartTime.value(),
-                    :duration => durationSeconds,
-                    :avgFlowScore => avgFlowScore,
-                    :samples => _flowScoreSamples
+                    "timestamp" => _sessionStartTime.value(),
+                    "duration" => durationSeconds,
+                    "avgFlowScore" => avgFlowScore,
+                    "samples" => _flowScoreSamples
                 });
             }
 
