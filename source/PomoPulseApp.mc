@@ -58,12 +58,13 @@ class PomoPulseApp extends Application.AppBase {
         var duration = 0;
         var weakest = "";
 
-        if (_sessionManager != null) {
-            avgFlow = _sessionManager.getSessionAvgFlowScore();
-            peakFlow = _sessionManager.getSessionPeakFlowScore();
-            flowZonePct = _sessionManager.getSessionFlowZonePercent();
-            duration = _sessionManager.getSessionDuration();
-            _sessionManager.stopSession();
+        var sm = _sessionManager;
+        if (sm != null) {
+            avgFlow = sm.getSessionAvgFlowScore();
+            peakFlow = sm.getSessionPeakFlowScore();
+            flowZonePct = sm.getSessionFlowZonePercent();
+            duration = sm.getSessionDuration();
+            sm.stopSession();
         }
         if (_sensorManager != null) {
             _sensorManager.stopSensors();

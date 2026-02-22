@@ -136,7 +136,8 @@ class PomoPulseView extends WatchUi.View {
             arcColor = COLOR_BREAK;
         } else if (tc.isRunning() && _flowCalculator != null && _flowCalculator.isWarmedUp()) {
             // Color arc by flow quality during active work
-            arcColor = getFlowColor(_flowCalculator.getFlowScore());
+            var fc = _flowCalculator;
+            arcColor = getFlowColor(fc != null ? fc.getFlowScore() : 50);
         } else if (tc.isRunning()) {
             arcColor = COLOR_WARMUP;
         } else {
@@ -172,10 +173,11 @@ class PomoPulseView extends WatchUi.View {
 
     //! Draw the flow zone label ("Flow" / "Focus" / "Distracted")
     private function drawFlowZoneLabel(dc as Dc) as Void {
-        if (_flowCalculator == null) { return; }
+        var fc = _flowCalculator;
+        if (fc == null) { return; }
 
-        var zone = _flowCalculator.getFlowZone();
-        var flowColor = getFlowColor(_flowCalculator.getFlowScore());
+        var zone = fc.getFlowZone();
+        var flowColor = getFlowColor(fc.getFlowScore());
 
         dc.setColor(flowColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, _centerY + 55, Graphics.FONT_XTINY,
@@ -237,11 +239,13 @@ class PomoPulseView extends WatchUi.View {
 
     //! Draw session summary during break
     private function drawBreakSessionSummary(dc as Dc) as Void {
-        if (_flowCalculator == null || _sessionManager == null) { return; }
+        var fc = _flowCalculator;
+        var sm = _sessionManager;
+        if (fc == null || sm == null) { return; }
 
-        var avgFlow = _sessionManager.getSessionAvgFlowScore();
-        var peakFlow = _flowCalculator.getPeakScore();
-        var flowPct = _flowCalculator.getFlowZonePercent();
+        var avgFlow = sm.getSessionAvgFlowScore();
+        var peakFlow = fc.getPeakScore();
+        var flowPct = fc.getFlowZonePercent();
 
         // Only show if we have data from the completed work session
         if (avgFlow <= 0 && peakFlow <= 0) { return; }

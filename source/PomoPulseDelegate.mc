@@ -135,8 +135,9 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
 
     //! Resume recording
     private function resumeRecording() as Void {
-        if (_sensorManager != null && !_sensorManager.areSensorsEnabled()) {
-            _sensorManager.startSensors();
+        var sensor = _sensorManager;
+        if (sensor != null && !sensor.areSensorsEnabled()) {
+            sensor.startSensors();
         }
         if (_sessionManager != null) {
             _sessionManager.resumeSession();
@@ -161,11 +162,12 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
         var duration = 0;
         var weakest = "";
 
-        if (_sessionManager != null) {
-            avgFlow = _sessionManager.getSessionAvgFlowScore();
-            peakFlow = _sessionManager.getSessionPeakFlowScore();
-            flowZonePct = _sessionManager.getSessionFlowZonePercent();
-            duration = _sessionManager.getSessionDuration();
+        var sm = _sessionManager;
+        if (sm != null) {
+            avgFlow = sm.getSessionAvgFlowScore();
+            peakFlow = sm.getSessionPeakFlowScore();
+            flowZonePct = sm.getSessionFlowZonePercent();
+            duration = sm.getSessionDuration();
         }
 
         if (_flowCalculator != null) {
