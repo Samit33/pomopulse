@@ -7,3 +7,11 @@ bin/
 # Garmin developer key (keep private)
 *.der
 *.prv
+
+# Build artifacts / temp downloads
+*.deb
+squashfs-root/
+screenshots/
+
+# Test run results (timestamped, not tracked)
+tests/results/
