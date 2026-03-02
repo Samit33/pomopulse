@@ -72,7 +72,7 @@ class StatsView extends WatchUi.View {
 
         // Title
         dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 25, Graphics.FONT_SMALL,
+        dc.drawText(_centerX, 22, Graphics.FONT_SMALL,
                     "Focus Stats", Graphics.TEXT_JUSTIFY_CENTER);
 
         // --- Today section ---
@@ -80,30 +80,31 @@ class StatsView extends WatchUi.View {
         var todaySessions = hm.getTodaySessions();
 
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 52, Graphics.FONT_TINY, "Today", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(_centerX, 50, Graphics.FONT_TINY, "Today", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Today: focus time (large, centered)
+        // Today: focus time (large, centered). FONT_MEDIUM is ~34px tall on FR255.
         dc.setColor(COLOR_FLOW_HIGH, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 72, Graphics.FONT_MEDIUM,
+        dc.drawText(_centerX, 70, Graphics.FONT_MEDIUM,
                     hm.formatDuration(todayTime), Graphics.TEXT_JUSTIFY_CENTER);
 
+        // Session count — placed 8px below time bottom (~104), so y=112
         dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 98, Graphics.FONT_XTINY,
+        dc.drawText(_centerX, 112, Graphics.FONT_XTINY,
                     todaySessions.size().format("%d") + " sessions",
                     Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Divider
-        dc.setColor(0x333333, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(50, 116, _screenWidth - 50, 116);
+        // Divider — 8px below sessions bottom (FONT_XTINY ~16px → bottom ~128)
+        dc.setColor(0x444444, Graphics.COLOR_TRANSPARENT);
+        dc.drawLine(45, 138, _screenWidth - 45, 138);
 
         // --- All-time section ---
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 124, Graphics.FONT_TINY, "All Time", Graphics.TEXT_JUSTIFY_CENTER);
+        dc.drawText(_centerX, 150, Graphics.FONT_TINY, "All Time", Graphics.TEXT_JUSTIFY_CENTER);
 
         var totalTime     = hm.getTotalFocusTime();
         var totalSessions = hm.getSessionCount();
 
-        var y = 144;
+        var y = 172;
 
         // Total time
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
@@ -112,7 +113,7 @@ class StatsView extends WatchUi.View {
         dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
                     hm.formatDuration(totalTime), Graphics.TEXT_JUSTIFY_RIGHT);
 
-        y += 24;
+        y += 26;
 
         // Sessions count
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);

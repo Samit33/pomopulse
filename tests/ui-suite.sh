@@ -158,28 +158,42 @@ _hold() {
 _screenshot() {
     local path="$1"
 
-    # Get simulator window screen position via xdotool (reliable in WSLg)
-    local geo wx wy ww wh
-    geo=$(xdotool getwindowgeometry --shell "$SIM_WID" 2>/dev/null) || geo=""
-    wx=$(echo "$geo" | grep '^X='      | cut -d= -f2 || echo "")
-    wy=$(echo "$geo" | grep '^Y='      | cut -d= -f2 || echo "")
-    ww=$(echo "$geo" | grep '^WIDTH='  | cut -d= -f2 || echo "")
-    wh=$(echo "$geo" | grep '^HEIGHT=' | cut -d= -f2 || echo "")
-
     local win_tmp='C:\Users\Public\pomo_ss_suite.png'
     local wsl_tmp
     wsl_tmp=$(wslpath -u "$win_tmp")
 
-    # Simulator was set TOPMOST at setup time — CopyFromScreen can capture it directly
-    # at its window coordinates without BringWindowToTop.  Avoiding BringWindowToTop /
-    # SetForegroundWindow here is critical: those calls generate Win32 WM_ACTIVATE events
-    # that the Garmin CIQ runtime registers as spurious button presses, corrupting state.
+    # Get window geometry AND capture inside the same PowerShell call to eliminate
+    # the race condition where the window drifts between xdotool query and CopyFromScreen.
+    # Drift of even 2-3px shifts the bezel into the r=132-145 overflow check band.
+    # Simulator was set TOPMOST at setup — no BringWindowToTop needed (that would
+    # generate WM_ACTIVATE → CIQ sees phantom button presses, corrupting nav state).
     powershell.exe -NoProfile -Command "
+Add-Type -TypeDefinition @'
+using System; using System.Runtime.InteropServices; using System.Text;
+public static class W {
+    [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L,T,R,B; }
+    public delegate bool EWP(IntPtr h, IntPtr l);
+    [DllImport(\"user32.dll\")] public static extern bool EnumWindows(EWP p, IntPtr l);
+    [DllImport(\"user32.dll\")] public static extern int  GetWindowText(IntPtr h, StringBuilder s, int n);
+    [DllImport(\"user32.dll\")] public static extern bool IsWindowVisible(IntPtr h);
+    [DllImport(\"user32.dll\")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
+    public static IntPtr Find(string t) {
+        IntPtr f=IntPtr.Zero;
+        EnumWindows((h,l)=>{ var s=new StringBuilder(256); GetWindowText(h,s,256);
+            if(s.ToString().Contains(t)&&IsWindowVisible(h)){f=h;return false;} return true; },IntPtr.Zero);
+        return f; }
+}
+'@
 Add-Type -AssemblyName System.Drawing
 Start-Sleep -Milliseconds 400
-\$full = New-Object System.Drawing.Bitmap($ww, $wh)
+\$hwnd = [W]::Find('CIQ Simulator')
+\$wr = New-Object W+RECT
+[void][W]::GetWindowRect(\$hwnd, [ref]\$wr)
+\$wx = \$wr.L; \$wy = \$wr.T
+\$ww = \$wr.R - \$wr.L; \$wh = \$wr.B - \$wr.T
+\$full = New-Object System.Drawing.Bitmap(\$ww, \$wh)
 \$g    = [System.Drawing.Graphics]::FromImage(\$full)
-\$g.CopyFromScreen($wx, $wy, 0, 0, \$full.Size)
+\$g.CopyFromScreen(\$wx, \$wy, 0, 0, \$full.Size)
 \$g.Dispose()
 \$rect = New-Object System.Drawing.Rectangle($WATCH_CROP_X, $WATCH_CROP_Y, $WATCH_CROP_W, $WATCH_CROP_H)
 \$crop = \$full.Clone(\$rect, \$full.PixelFormat)
