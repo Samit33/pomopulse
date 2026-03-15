@@ -2,6 +2,7 @@
 bin/
 
 # Claude Code local settings
+.claude/settings.json
 .claude/settings.local.json
 
 # Garmin developer key (keep private)

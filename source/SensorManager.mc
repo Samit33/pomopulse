@@ -1,7 +1,6 @@
 import Toybox.Lang;
 import Toybox.Math;
 import Toybox.Sensor;
-import Toybox.SensorHistory;
 import Toybox.System;
 
 //! Manages sensor data collection for focus quality calculation
@@ -12,9 +11,8 @@ class SensorManager {
     private var _sensorsEnabled as Boolean = false;
 
     // Current sensor values
-    private var _heartRate     as Number = 0;
+    private var _heartRate      as Number = 0;
     private var _accelMagnitude as Number = 0;
-    private var _stress        as Number = 0;
 
     //! Constructor
     function initialize(flowCalculator as FlowScoreCalculator?) {
@@ -28,9 +26,8 @@ class SensorManager {
             return;
         }
 
-        // Enable sensor events
         var options = {
-            :period => 1,  // 1 second sample rate
+            :period => 1,
             :accelerometer => {
                 :enabled => true,
                 :sampleRate => 1
@@ -44,7 +41,6 @@ class SensorManager {
             Sensor.setEnabledSensors([Sensor.SENSOR_HEARTRATE] as Array<SensorType>);
             Sensor.enableSensorEvents(method(:onSensorData));
 
-            // Register for heart beat intervals (HRV data)
             if (Sensor has :registerSensorDataListener) {
                 Sensor.registerSensorDataListener(method(:onSensorDataListener), options);
             }
@@ -78,12 +74,10 @@ class SensorManager {
 
     //! Sensor event callback (1Hz)
     function onSensorData(sensorInfo as Sensor.Info) as Void {
-        // Heart rate (for display only)
         if (sensorInfo has :heartRate && sensorInfo.heartRate != null) {
             _heartRate = sensorInfo.heartRate as Number;
         }
 
-        // Accelerometer — calculate magnitude
         if (sensorInfo has :accel && sensorInfo.accel != null) {
             var accel = sensorInfo.accel as Array<Number>;
             if (accel.size() >= 3) {
@@ -94,10 +88,6 @@ class SensorManager {
             }
         }
 
-        // Query stress from sensor history
-        updateStress();
-
-        // Update flow calculator with new sensor data
         updateFlowCalculator();
     }
 
@@ -114,61 +104,29 @@ class SensorManager {
         }
     }
 
-    //! Query stress level from sensor history
-    private function updateStress() as Void {
-        try {
-            if (SensorHistory has :getStressHistory) {
-                var stressIter = SensorHistory.getStressHistory({
-                    :period => 1,
-                    :order => SensorHistory.ORDER_NEWEST_FIRST
-                });
-
-                if (stressIter != null) {
-                    var sample = stressIter.next();
-                    if (sample != null && sample.data != null) {
-                        _stress = (sample.data as Number);
-                    }
-                }
-            }
-        } catch (ex) {
-            // Stress history may not be available on all firmware versions
-        }
-    }
-
     //! Update flow calculator with current sensor data
     private function updateFlowCalculator() as Void {
         if (_flowCalculator == null) {
             return;
         }
-
         _flowCalculator.updateSensorData(
             _hrvAnalyzer.getRmssd(),
-            _accelMagnitude,
-            _stress
+            _accelMagnitude
         );
     }
 
-    //! Get current heart rate (bpm) — used for quiet display in timer view
     function getHeartRate() as Number {
         return _heartRate;
     }
 
-    //! Get current accelerometer magnitude
     function getAccelMagnitude() as Number {
         return _accelMagnitude;
     }
 
-    //! Get current stress level
-    function getStress() as Number {
-        return _stress;
-    }
-
-    //! Get current RMSSD
     function getRmssd() as Float {
         return _hrvAnalyzer.getRmssd();
     }
 
-    //! Check if sensors are enabled
     function areSensorsEnabled() as Boolean {
         return _sensorsEnabled;
     }

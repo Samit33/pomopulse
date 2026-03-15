@@ -5,41 +5,38 @@ import Toybox.Time;
 import Toybox.Time.Gregorian;
 import Toybox.WatchUi;
 
-//! View displaying session history and statistics.
-//! Shows focus time and session counts; biometric scores are not displayed
-//! here to avoid false precision from noisy per-session composites.
+//! Today's unified stats view with mode breakdown and scrollable session list
 class StatsView extends WatchUi.View {
 
     private var _historyManager as HistoryManager?;
+    private var _scrollOffset as Number = 0;
 
-    // Screen dimensions
     private var _screenWidth  as Number = 0;
     private var _screenHeight as Number = 0;
     private var _centerX      as Number = 0;
-    private var _centerY      as Number = 0;
 
-    // Colors
-    private const COLOR_BG       = 0x000000;
-    private const COLOR_TEXT     = 0xFFFFFF;
-    private const COLOR_TEXT_DIM = 0xAAAAAA;
-    private const COLOR_ACCENT   = 0x44AAFF;
-    private const COLOR_FLOW_HIGH = 0x44FF44;
+    private const COLOR_BG        = 0x000000;
+    private const COLOR_TEXT      = 0xFFFFFF;
+    private const COLOR_TEXT_DIM  = 0xAAAAAA;
+    private const COLOR_ACCENT    = 0x44AAFF;
+    private const COLOR_FLOW      = 0x44DDAA;
+    private const COLOR_POMO      = 0x4488FF;
+    private const COLOR_TIME      = 0x44FF44;
 
-    //! Constructor
+    private const SESSION_ROW_H  = 30;
+    private const MAX_VISIBLE    = 3;
+
     function initialize(historyManager as HistoryManager?) {
         View.initialize();
         _historyManager = historyManager;
     }
 
-    //! Load resources
     function onLayout(dc as Dc) as Void {
         _screenWidth  = dc.getWidth();
         _screenHeight = dc.getHeight();
         _centerX = _screenWidth  / 2;
-        _centerY = _screenHeight / 2;
     }
 
-    //! Update the view
     function onUpdate(dc as Dc) as Void {
         dc.setColor(COLOR_BG, COLOR_BG);
         dc.clear();
@@ -49,188 +46,133 @@ class StatsView extends WatchUi.View {
             return;
         }
 
-        var sessionCount = _historyManager.getSessionCount();
-        if (sessionCount == 0) {
+        var todaySessions = _historyManager.getTodaySessions();
+        if (todaySessions.size() == 0) {
             drawNoData(dc);
             return;
         }
 
-        drawStats(dc);
+        drawStats(dc, todaySessions);
     }
 
-    //! Draw no data message
     private function drawNoData(dc as Dc) as Void {
         dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, _centerY, Graphics.FONT_MEDIUM,
-                    "No sessions yet", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+        dc.drawText(_centerX, _screenHeight / 2, Graphics.FONT_MEDIUM,
+                    "No sessions today", Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
     }
 
-    //! Draw statistics — focus time and session counts only
-    private function drawStats(dc as Dc) as Void {
+    private function drawStats(dc as Dc, todaySessions as Array<Dictionary>) as Void {
         var hm = _historyManager;
         if (hm == null) { return; }
 
         // Title
         dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, 22, Graphics.FONT_SMALL,
-                    "Focus Stats", Graphics.TEXT_JUSTIFY_CENTER);
+                    "Today", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // --- Today section ---
-        var todayTime     = hm.getTodayFocusTime();
-        var todaySessions = hm.getTodaySessions();
-
-        dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 50, Graphics.FONT_TINY, "Today", Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Today: focus time (large, centered). FONT_MEDIUM is ~34px tall on FR255.
-        dc.setColor(COLOR_FLOW_HIGH, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 70, Graphics.FONT_MEDIUM,
+        // Total focus time
+        var todayTime = hm.getTodayFocusTime();
+        dc.setColor(COLOR_TIME, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_centerX, 48, Graphics.FONT_MEDIUM,
                     hm.formatDuration(todayTime), Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Session count — placed 8px below time bottom (~104), so y=112
-        dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 112, Graphics.FONT_XTINY,
-                    todaySessions.size().format("%d") + " sessions",
-                    Graphics.TEXT_JUSTIFY_CENTER);
+        // Mode breakdown
+        var flowSessions = hm.getTodaySessionsByMode(MODE_FLOWTIMER);
+        var pomoSessions = hm.getTodaySessionsByMode(MODE_POMODORO);
 
-        // Divider — 8px below sessions bottom (FONT_XTINY ~16px → bottom ~128)
+        var y = 80;
+        if (flowSessions.size() > 0) {
+            var flowTime = hm.getTodayFocusTimeByMode(MODE_FLOWTIMER);
+            dc.setColor(COLOR_FLOW, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_centerX, y, Graphics.FONT_XTINY,
+                        "Flow: " + hm.formatDurationCompact(flowTime) + " (" + flowSessions.size() + ")",
+                        Graphics.TEXT_JUSTIFY_CENTER);
+            y += 18;
+        }
+
+        if (pomoSessions.size() > 0) {
+            var pomoTime = hm.getTodayFocusTimeByMode(MODE_POMODORO);
+            var cycles = hm.getTodayCompletedCycles();
+            var cycleText = cycles > 0 ? ", " + cycles + " cycles" : "";
+            dc.setColor(COLOR_POMO, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_centerX, y, Graphics.FONT_XTINY,
+                        "Pomo: " + hm.formatDurationCompact(pomoTime) + " (" + pomoSessions.size() + ")" + cycleText,
+                        Graphics.TEXT_JUSTIFY_CENTER);
+            y += 18;
+        }
+
+        // Divider
+        var divY = y + 4;
         dc.setColor(0x444444, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(45, 138, _screenWidth - 45, 138);
+        dc.drawLine(45, divY, _screenWidth - 45, divY);
 
-        // --- All-time section ---
-        dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 150, Graphics.FONT_TINY, "All Time", Graphics.TEXT_JUSTIFY_CENTER);
-
-        var totalTime     = hm.getTotalFocusTime();
-        var totalSessions = hm.getSessionCount();
-
-        var y = 172;
-
-        // Total time
-        dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(35, y, Graphics.FONT_XTINY, "Total:", Graphics.TEXT_JUSTIFY_LEFT);
-        dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
-                    hm.formatDuration(totalTime), Graphics.TEXT_JUSTIFY_RIGHT);
-
-        y += 26;
-
-        // Sessions count
-        dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(35, y, Graphics.FONT_XTINY, "Sessions:", Graphics.TEXT_JUSTIFY_LEFT);
-        dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
-                    totalSessions.format("%d"), Graphics.TEXT_JUSTIFY_RIGHT);
-    }
-}
-
-//! Stats view input delegate
-class StatsDelegate extends WatchUi.BehaviorDelegate {
-
-    //! Constructor
-    function initialize() {
-        BehaviorDelegate.initialize();
-    }
-
-    //! Handle back button
-    function onBack() as Boolean {
-        WatchUi.popView(WatchUi.SLIDE_DOWN);
-        return true;
-    }
-
-    //! Handle select button — show session list
-    function onSelect() as Boolean {
-        var historyManager = getApp().getHistoryManager();
-        if (historyManager != null && historyManager.getSessionCount() > 0) {
-            var listView = new SessionListView(historyManager);
-            var listDelegate = new SessionListDelegate(historyManager);
-            WatchUi.pushView(listView, listDelegate, WatchUi.SLIDE_LEFT);
-        }
-        return true;
-    }
-}
-
-//! View showing list of individual sessions (date + duration)
-class SessionListView extends WatchUi.View {
-
-    private var _historyManager as HistoryManager?;
-    private var _scrollOffset   as Number = 0;
-    private const ITEMS_PER_PAGE = 4;
-
-    //! Constructor
-    function initialize(historyManager as HistoryManager?) {
-        View.initialize();
-        _historyManager = historyManager;
-    }
-
-    //! Update the view
-    function onUpdate(dc as Dc) as Void {
-        dc.setColor(0x000000, 0x000000);
-        dc.clear();
-
-        if (_historyManager == null) {
-            return;
-        }
-
-        var sessions = _historyManager.getSessions();
-        if (sessions == null || sessions.size() == 0) {
-            return;
-        }
-
-        // Title
-        dc.setColor(0x44AAFF, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(dc.getWidth() / 2, 20, Graphics.FONT_SMALL,
-                    "Sessions", Graphics.TEXT_JUSTIFY_CENTER);
-
-        // Draw session list
-        var y = 50;
-        var endIndex = _scrollOffset + ITEMS_PER_PAGE;
-        if (endIndex > sessions.size()) {
-            endIndex = sessions.size();
+        // Session list
+        var listY = divY + 10;
+        var endIndex = _scrollOffset + MAX_VISIBLE;
+        if (endIndex > todaySessions.size()) {
+            endIndex = todaySessions.size();
         }
 
         for (var i = _scrollOffset; i < endIndex; i++) {
-            var session = sessions[i] as Dictionary;
-            drawSessionItem(dc, session, y);
-            y += 45;
+            var session = todaySessions[i] as Dictionary;
+            drawSessionRow(dc, session, listY, i + 1);
+            listY += SESSION_ROW_H;
         }
 
         // Scroll indicators
         if (_scrollOffset > 0) {
-            dc.setColor(0xAAAAAA, Graphics.COLOR_TRANSPARENT);
-            dc.fillPolygon([[dc.getWidth() / 2 - 10, 40], [dc.getWidth() / 2 + 10, 40], [dc.getWidth() / 2, 30]]);
+            dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+            dc.fillPolygon([[_centerX - 8, divY + 4],
+                            [_centerX + 8, divY + 4],
+                            [_centerX, divY - 4]]);
         }
-        if (endIndex < sessions.size()) {
-            dc.setColor(0xAAAAAA, Graphics.COLOR_TRANSPARENT);
-            dc.fillPolygon([[dc.getWidth() / 2 - 10, dc.getHeight() - 20], [dc.getWidth() / 2 + 10, dc.getHeight() - 20], [dc.getWidth() / 2, dc.getHeight() - 10]]);
+        if (endIndex < todaySessions.size()) {
+            var arrowY = listY + 4;
+            dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+            dc.fillPolygon([[_centerX - 8, arrowY],
+                            [_centerX + 8, arrowY],
+                            [_centerX, arrowY + 8]]);
         }
     }
 
-    //! Draw a single session item: date on left, duration on right
-    private function drawSessionItem(dc as Dc, session as Dictionary, y as Number) as Void {
+    private function drawSessionRow(dc as Dc, session as Dictionary, y as Number, index as Number) as Void {
         var timestamp = session.hasKey("timestamp") ? (session["timestamp"] as Number) : 0;
         var duration  = session.hasKey("duration")  ? (session["duration"]  as Number) : 0;
 
-        // Format date
+        // Mode indicator
+        var hm = _historyManager;
+        var mode = (hm != null) ? hm.getSessionMode(session) : MODE_POMODORO;
+        var modeChar = mode == MODE_FLOWTIMER ? "F" : "P";
+        var modeColor = mode == MODE_FLOWTIMER ? COLOR_FLOW : COLOR_POMO;
+
+        // Converted marker
+        var converted = session.hasKey("converted") && (session["converted"] as Boolean);
+
+        // Start time
         var moment = new Time.Moment(timestamp);
         var info   = Gregorian.info(moment, Time.FORMAT_SHORT);
-        var dateStr = info.month.toString() + "/" + info.day.toString();
+        var timeStr = info.hour.format("%02d") + ":" + info.min.format("%02d");
 
-        // Duration string
-        var hm2 = _historyManager;
-        var durationStr = (hm2 != null) ? hm2.formatDuration(duration as Number) : "0:00";
+        // Duration
+        var durationStr = (hm != null) ? hm.formatDuration(duration as Number) : "0:00";
 
-        // Date
-        dc.setColor(0xFFFFFF, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(30, y, Graphics.FONT_TINY, dateStr, Graphics.TEXT_JUSTIFY_LEFT);
+        // Left: mode + index + time
+        dc.setColor(modeColor, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(25, y, Graphics.FONT_XTINY, modeChar, Graphics.TEXT_JUSTIFY_LEFT);
 
-        // Duration (right-aligned)
-        dc.setColor(0xAAAAAA, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(dc.getWidth() - 30, y, Graphics.FONT_TINY,
+        var leftText = "#" + index.format("%d") + " " + timeStr;
+        if (converted) {
+            leftText = leftText + "*";
+        }
+        dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(38, y, Graphics.FONT_XTINY, leftText, Graphics.TEXT_JUSTIFY_LEFT);
+
+        // Right: duration
+        dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_screenWidth - 30, y, Graphics.FONT_XTINY,
                     durationStr, Graphics.TEXT_JUSTIFY_RIGHT);
     }
 
-    //! Scroll up
     function scrollUp() as Void {
         if (_scrollOffset > 0) {
             _scrollOffset--;
@@ -238,11 +180,10 @@ class SessionListView extends WatchUi.View {
         }
     }
 
-    //! Scroll down
     function scrollDown() as Void {
         if (_historyManager != null) {
-            var sessions = _historyManager.getSessions();
-            if (sessions != null && _scrollOffset + ITEMS_PER_PAGE < sessions.size()) {
+            var todaySessions = _historyManager.getTodaySessions();
+            if (_scrollOffset + MAX_VISIBLE < todaySessions.size()) {
                 _scrollOffset++;
                 WatchUi.requestUpdate();
             }
@@ -250,41 +191,31 @@ class SessionListView extends WatchUi.View {
     }
 }
 
-//! Session list input delegate
-class SessionListDelegate extends WatchUi.BehaviorDelegate {
+//! Stats view input delegate
+class StatsDelegate extends WatchUi.BehaviorDelegate {
 
-    private var _historyManager as HistoryManager?;
-    private var _listView       as SessionListView?;
+    private var _statsView as StatsView?;
 
-    //! Constructor
-    function initialize(historyManager as HistoryManager?) {
+    function initialize(statsView as StatsView?) {
         BehaviorDelegate.initialize();
-        _historyManager = historyManager;
+        _statsView = statsView;
     }
 
-    //! Set the list view reference
-    function setListView(view as SessionListView) as Void {
-        _listView = view;
-    }
-
-    //! Handle back button
     function onBack() as Boolean {
-        WatchUi.popView(WatchUi.SLIDE_RIGHT);
+        WatchUi.popView(WatchUi.SLIDE_DOWN);
         return true;
     }
 
-    //! Handle UP button
     function onPreviousPage() as Boolean {
-        if (_listView != null) {
-            _listView.scrollUp();
+        if (_statsView != null) {
+            _statsView.scrollUp();
         }
         return true;
     }
 
-    //! Handle DOWN button
     function onNextPage() as Boolean {
-        if (_listView != null) {
-            _listView.scrollDown();
+        if (_statsView != null) {
+            _statsView.scrollDown();
         }
         return true;
     }

@@ -106,9 +106,12 @@ Prerequisites:
 
 ## UI Testing
 
-Two scripts automate simulator testing on WSLg (requires `xdotool`):
+Two scripts automate simulator testing on WSLg (requires `xdotool` and `grim`):
 
 ```bash
+# Install once
+sudo apt-get install -y grim
+
 # Full UI walkthrough with screenshots (12 steps)
 ./ui-test.sh
 
@@ -119,8 +122,9 @@ Two scripts automate simulator testing on WSLg (requires `xdotool`):
 ./tests/ui-suite.sh --save-baseline
 ```
 
-Screenshots use PowerShell `CopyFromScreen` (not scrot) because WSLg renders via Windows RDP
-and X11 tools only capture a black framebuffer.
+Screenshots use `grim` (Wayland compositor capture via `WAYLAND_DISPLAY=wayland-0`) — reads directly
+from the Weston compositor framebuffer, unaffected by window z-order. Key injection uses Win32
+`PostMessage(WM_KEYDOWN)` via `powershell.exe`, bypassing Wayland/X11 focus restrictions.
 
-**Known limitation**: Long-press UP (settings menu) cannot be reliably triggered via xdotool
-in the Garmin simulator — `onMenu` hold detection does not fire from synthetic key events.
+**Known limitation**: Long-press UP (settings menu) cannot be reliably triggered via synthetic
+Win32 key events in the Garmin simulator — `onMenu` hold detection does not fire.

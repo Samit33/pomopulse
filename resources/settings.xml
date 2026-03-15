@@ -1,15 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <settings>
+    <setting propertyKey="@Properties.timerMode" title="Timer Mode">
+        <settingConfig type="list">
+            <listEntry value="0">Flowtimer</listEntry>
+            <listEntry value="1">Pomodoro</listEntry>
+        </settingConfig>
+    </setting>
     <setting propertyKey="@Properties.workDuration" title="Work Duration">
         <settingConfig type="numeric" min="10" max="60" />
     </setting>
     <setting propertyKey="@Properties.shortBreakDuration" title="Short Break">
-        <settingConfig type="numeric" min="1" max="30" />
+        <settingConfig type="numeric" min="3" max="15" />
     </setting>
     <setting propertyKey="@Properties.longBreakDuration" title="Long Break">
-        <settingConfig type="numeric" min="5" max="60" />
-    </setting>
-    <setting propertyKey="@Properties.autoStartBreak" title="Auto-start Break">
-        <settingConfig type="boolean" />
+        <settingConfig type="numeric" min="10" max="30" />
     </setting>
 </settings>

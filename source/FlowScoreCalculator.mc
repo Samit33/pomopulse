@@ -3,25 +3,20 @@ import Toybox.Math;
 
 //! Calculates the Focus Quality score (0-100) from biofeedback signals
 //!
-//! Simplified two-signal composite:
-//! - HRV (RMSSD): 60% - Strongest predictor of cognitive performance
-//! - Movement:    20% - Physical stillness indicates deep focus
-//! - Stress:      20% - Garmin's composite HRV-based stress (inverted)
+//! Two-signal composite:
+//! - HRV (RMSSD): 75% - Strongest predictor of cognitive performance
+//! - Movement:    25% - Physical stillness indicates deep focus
 //!
-//! HR Stability and SpO2 removed: HR rises naturally during focused work
-//! (penalising that is counterproductive) and SpO2 barely changes during
-//! cognitive effort, adding noise without insight.
+//! Stress, HR Stability, and SpO2 removed as unreliable on-device signals.
 class FlowScoreCalculator {
 
-    // Weights for each component (must sum to 1.0)
-    private const WEIGHT_HRV      = 0.60;
-    private const WEIGHT_MOVEMENT = 0.20;
-    private const WEIGHT_STRESS   = 0.20;
+    // Weights (must sum to 1.0)
+    private const WEIGHT_HRV      = 0.75;
+    private const WEIGHT_MOVEMENT = 0.25;
 
     // Current component scores (0-100)
     private var _hrvScore      as Number = 50;
     private var _movementScore as Number = 50;
-    private var _stressScore   as Number = 50;
 
     // Smoothing: exponential moving average
     private const EMA_ALPHA = 0.15;  // ~13 s effective window
@@ -40,22 +35,21 @@ class FlowScoreCalculator {
     private var _timeInFocus      as Number = 0;  // score 40-69
     private var _timeInDistracted as Number = 0;  // score < 40
 
+    // Track whether we received real biometric data
+    private var _sampleCount as Number = 0;
+
     //! Constructor
     function initialize() {
     }
 
     //! Update sensor data and recalculate scores
-    function updateSensorData(rmssd as Float, accelMagnitude as Number,
-                              stress as Number) as Void {
-        // Calculate individual component scores
+    function updateSensorData(rmssd as Float, accelMagnitude as Number) as Void {
         _hrvScore      = calculateHrvScore(rmssd);
         _movementScore = calculateMovementScore(accelMagnitude);
-        _stressScore   = calculateStressScore(stress);
 
-        // Calculate weighted composite
-        var rawScore = (_hrvScore      * WEIGHT_HRV) +
-                       (_movementScore * WEIGHT_MOVEMENT) +
-                       (_stressScore   * WEIGHT_STRESS);
+        // Weighted composite
+        var rawScore = (_hrvScore * WEIGHT_HRV) +
+                       (_movementScore * WEIGHT_MOVEMENT);
 
         var rawInt = rawScore.toNumber();
 
@@ -83,10 +77,11 @@ class FlowScoreCalculator {
         } else {
             _timeInDistracted++;
         }
+
+        _sampleCount++;
     }
 
-    //! Calculate HRV score from RMSSD
-    //! RMSSD 20ms = 0, 100ms = 100
+    //! HRV score: RMSSD 20ms = 0, 100ms = 100
     private function calculateHrvScore(rmssd as Float) as Number {
         if (rmssd <= 20.0) {
             return 0;
@@ -95,8 +90,7 @@ class FlowScoreCalculator {
         return clamp(score, 0, 100);
     }
 
-    //! Calculate movement score from accelerometer magnitude
-    //! ~1000mg at rest (gravity), higher values indicate movement
+    //! Movement score: ~1000mg at rest (gravity), higher = more movement
     private function calculateMovementScore(accelMagnitude as Number) as Number {
         var excess = accelMagnitude - 1000;
         if (excess < 0) {
@@ -106,72 +100,53 @@ class FlowScoreCalculator {
         return clamp(score, 0, 100);
     }
 
-    //! Calculate stress score (inverted — lower Garmin stress = higher score)
-    private function calculateStressScore(stress as Number) as Number {
-        if (stress <= 0) {
-            return 50;  // Neutral if no stress data
-        }
-        return clamp(100 - stress, 0, 100);
-    }
-
-    //! Clamp value between min and max
     private function clamp(value as Number, min as Number, max as Number) as Number {
         if (value < min) { return min; }
         if (value > max) { return max; }
         return value;
     }
 
-    //! Get the current flow score (0-100) — used for background FIT recording
+    //! Whether real biometric data has been received
+    function hasBiometrics() as Boolean {
+        return _sampleCount > 0;
+    }
+
     function getFlowScore() as Number {
         return _flowScore;
     }
 
-    //! Get HRV component score (0-100)
     function getHrvScore() as Number {
         return _hrvScore;
     }
 
-    //! Get movement component score (0-100)
     function getMovementScore() as Number {
         return _movementScore;
     }
 
-    //! Get stress component score (0-100)
-    function getStressScore() as Number {
-        return _stressScore;
-    }
-
-    //! Get session peak score
     function getPeakScore() as Number {
         return _peakScore;
     }
 
-    //! Get session minimum score
     function getMinScore() as Number {
         return _minScore;
     }
 
-    //! Get seconds spent in Flow zone (score >= 70)
     function getTimeInFlow() as Number {
         return _timeInFlow;
     }
 
-    //! Get seconds spent in Focus zone (score 40-69)
     function getTimeInFocus() as Number {
         return _timeInFocus;
     }
 
-    //! Get seconds spent in Distracted zone (score < 40)
     function getTimeInDistracted() as Number {
         return _timeInDistracted;
     }
 
-    //! Get total tracked time across all zones
     function getTotalTrackedTime() as Number {
         return _timeInFlow + _timeInFocus + _timeInDistracted;
     }
 
-    //! Get flow zone percentage (time in Flow zone / total time)
     function getFlowZonePercent() as Number {
         var total = getTotalTrackedTime();
         if (total == 0) {
@@ -184,7 +159,6 @@ class FlowScoreCalculator {
     function reset() as Void {
         _hrvScore      = 50;
         _movementScore = 50;
-        _stressScore   = 50;
         _flowScore     = 50;
         _emaScore      = 50.0;
         _emaInitialized = false;
@@ -193,5 +167,6 @@ class FlowScoreCalculator {
         _timeInFlow    = 0;
         _timeInFocus   = 0;
         _timeInDistracted = 0;
+        _sampleCount   = 0;
     }
 }

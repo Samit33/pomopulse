@@ -3,98 +3,114 @@ import Toybox.Lang;
 import Toybox.System;
 import Toybox.WatchUi;
 
-//! View displayed after a work session completes.
-//!
-//! Shows duration as the headline, then three qualitative signal bars
-//! (HRV Quality, Stillness, Recovery State) rated Low / Med / High.
-//! No composite score — individual signals are honest and interpretable.
+//! Post-session summary screen (both modes).
+//! Shows duration, session label, flow score, and signal quality indicators.
 class SessionSummaryView extends WatchUi.View {
 
     private var _durationSeconds as Number;
-    private var _hrvScore        as Number;  // 0-100
-    private var _movementScore   as Number;  // 0-100 (higher = more still)
-    private var _stressScore     as Number;  // 0-100 (higher = lower stress)
+    private var _hrvScore        as Number;
+    private var _movementScore   as Number;
+    private var _mode            as Number;
+    private var _label           as String;
+    private var _converted       as Boolean;
+    private var _hasBiometrics   as Boolean;
 
-    // Screen dimensions
     private var _screenWidth  as Number = 0;
     private var _screenHeight as Number = 0;
     private var _centerX      as Number = 0;
-    private var _centerY      as Number = 0;
 
-    // Colors
     private const COLOR_BG       = 0x000000;
     private const COLOR_TEXT     = 0xFFFFFF;
     private const COLOR_TEXT_DIM = 0xAAAAAA;
     private const COLOR_ACCENT   = 0x44AAFF;
-    private const COLOR_HIGH     = 0x44FF44;  // Green
-    private const COLOR_MED      = 0xFFAA00;  // Amber
-    private const COLOR_LOW      = 0xFF4444;  // Red
+    private const COLOR_FLOW     = 0x44DDAA;
+    private const COLOR_HIGH     = 0x44FF44;
+    private const COLOR_MED      = 0xFFAA00;
+    private const COLOR_LOW      = 0xFF4444;
 
-    //! Constructor
-    //! @param duration     Session length in seconds
-    //! @param hrvScore     HRV component score (0-100)
-    //! @param movementScore  Stillness score (0-100, higher = more still)
-    //! @param stressScore  Recovery/stress score (0-100, higher = less stressed)
     function initialize(duration as Number, hrvScore as Number,
-                       movementScore as Number, stressScore as Number) {
+                       movementScore as Number, mode as Number,
+                       label as String, converted as Boolean,
+                       hasBiometrics as Boolean) {
         View.initialize();
         _durationSeconds = duration;
         _hrvScore        = hrvScore;
         _movementScore   = movementScore;
-        _stressScore     = stressScore;
+        _mode            = mode;
+        _label           = label;
+        _converted       = converted;
+        _hasBiometrics   = hasBiometrics;
     }
 
-    //! Load resources
     function onLayout(dc as Dc) as Void {
         _screenWidth  = dc.getWidth();
         _screenHeight = dc.getHeight();
         _centerX = _screenWidth  / 2;
-        _centerY = _screenHeight / 2;
     }
 
-    //! Update the view
     function onUpdate(dc as Dc) as Void {
         dc.setColor(COLOR_BG, COLOR_BG);
         dc.clear();
 
         // Title
+        var title = _mode == MODE_FLOWTIMER ? "Session Done" : "Pomodoro Done";
         dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, 22, Graphics.FONT_SMALL,
-                    "Session Done", Graphics.TEXT_JUSTIFY_CENTER);
+                    title, Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Duration as the hero number
+        // Duration hero number
         var minutes = _durationSeconds / 60;
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 60, Graphics.FONT_NUMBER_MILD,
+        dc.drawText(_centerX, 58, Graphics.FONT_NUMBER_MILD,
                     minutes.format("%d"), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 88, Graphics.FONT_XTINY,
+        dc.drawText(_centerX, 85, Graphics.FONT_XTINY,
                     "min focus", Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Session label (e.g., "Deep flow", "Pomodoro")
+        var labelColor = _mode == MODE_FLOWTIMER ? COLOR_FLOW : COLOR_ACCENT;
+        dc.setColor(labelColor, Graphics.COLOR_TRANSPARENT);
+        var labelText = _label;
+        if (_converted) {
+            labelText = labelText + " (converted)";
+        }
+        dc.drawText(_centerX, 102, Graphics.FONT_XTINY,
+                    labelText, Graphics.TEXT_JUSTIFY_CENTER);
 
         // Divider
         dc.setColor(0x333333, Graphics.COLOR_TRANSPARENT);
-        dc.drawLine(50, 106, _screenWidth - 50, 106);
+        dc.drawLine(50, 120, _screenWidth - 50, 120);
 
-        // Three signal rows
-        var y = 118;
-        drawSignalRow(dc, y, "HRV Quality",  _hrvScore);
-        y += 26;
-        drawSignalRow(dc, y, "Stillness",    _movementScore);
-        y += 26;
-        drawSignalRow(dc, y, "Recovery",     _stressScore);
+        if (_hasBiometrics) {
+            // Signal rows
+            var y = 132;
+            drawSignalRow(dc, y, "HRV Quality", _hrvScore);
+            y += 26;
+            drawSignalRow(dc, y, "Stillness", _movementScore);
 
-        // Bottom hint
-        dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+            // Flow score
+            var flowScore = ((_hrvScore * 75) + (_movementScore * 25)) / 100;
+            dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_centerX, y + 30, Graphics.FONT_XTINY,
+                        "Flow Score: " + flowScore.format("%d"),
+                        Graphics.TEXT_JUSTIFY_CENTER);
+        } else {
+            dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_centerX, 145, Graphics.FONT_SMALL,
+                        "Flow: N/A", Graphics.TEXT_JUSTIFY_CENTER);
+        }
+
+        // Dismiss hint
+        dc.setColor(0x666666, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, _screenHeight - 28, Graphics.FONT_XTINY,
                     "Press any key", Graphics.TEXT_JUSTIFY_CENTER);
     }
 
-    //! Draw one signal row: label on left, Low/Med/High on right
     private function drawSignalRow(dc as Dc, y as Number, label as String,
                                    score as Number) as Void {
-        var qualLabel = getQualityLabel(score);
-        var qualColor = getQualityColor(score);
+        var qualLabel = score >= 67 ? "High" : (score >= 34 ? "Med" : "Low");
+        var qualColor = score >= 67 ? COLOR_HIGH : (score >= 34 ? COLOR_MED : COLOR_LOW);
 
         dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
         dc.drawText(35, y, Graphics.FONT_XTINY, label, Graphics.TEXT_JUSTIFY_LEFT);
@@ -103,49 +119,30 @@ class SessionSummaryView extends WatchUi.View {
         dc.drawText(_screenWidth - 35, y, Graphics.FONT_XTINY,
                     qualLabel, Graphics.TEXT_JUSTIFY_RIGHT);
     }
-
-    //! Return "High", "Med", or "Low" based on score
-    private function getQualityLabel(score as Number) as String {
-        if (score >= 67) { return "High"; }
-        if (score >= 34) { return "Med"; }
-        return "Low";
-    }
-
-    //! Return color matching quality label
-    private function getQualityColor(score as Number) as Number {
-        if (score >= 67) { return COLOR_HIGH; }
-        if (score >= 34) { return COLOR_MED; }
-        return COLOR_LOW;
-    }
 }
 
-//! Delegate for session summary — any button dismisses
+//! Any-button dismiss delegate for SessionSummaryView
 class SessionSummaryDelegate extends WatchUi.BehaviorDelegate {
 
-    //! Constructor
     function initialize() {
         BehaviorDelegate.initialize();
     }
 
-    //! Dismiss on select
     function onSelect() as Boolean {
         WatchUi.popView(WatchUi.SLIDE_DOWN);
         return true;
     }
 
-    //! Dismiss on back
     function onBack() as Boolean {
         WatchUi.popView(WatchUi.SLIDE_DOWN);
         return true;
     }
 
-    //! Dismiss on any page
     function onNextPage() as Boolean {
         WatchUi.popView(WatchUi.SLIDE_DOWN);
         return true;
     }
 
-    //! Dismiss on any page
     function onPreviousPage() as Boolean {
         WatchUi.popView(WatchUi.SLIDE_DOWN);
         return true;

@@ -7,19 +7,24 @@
     <string id="ReadyLabel">Ready</string>
     <string id="FlowScoreLabel">Flow</string>
     <string id="HeartRateLabel">HR</string>
+    <string id="FlowScoreUnit">pts</string>
+
+    <string id="FlowtimerLabel">Flowtimer</string>
+    <string id="PomodoroModeLabel">Pomodoro</string>
+    <string id="TimerModeLabel">Timer Mode</string>
+
     <string id="SessionsLabel">Sessions</string>
     <string id="TotalTimeLabel">Total Time</string>
     <string id="AvgFlowLabel">Avg Flow</string>
     <string id="BestFlowLabel">Best Flow</string>
     <string id="TodayLabel">Today</string>
     <string id="AllTimeLabel">All Time</string>
+
     <string id="SettingsTitle">Settings</string>
     <string id="WorkDurationLabel">Work Duration</string>
     <string id="ShortBreakLabel">Short Break</string>
     <string id="LongBreakLabel">Long Break</string>
-    <string id="AutoStartLabel">Auto-start Break</string>
     <string id="ClearHistoryLabel">Clear History</string>
     <string id="NoSessionsLabel">No sessions yet</string>
     <string id="ConfirmClear">Clear all history?</string>
-    <string id="FlowScoreUnit">pts</string>
 </strings>

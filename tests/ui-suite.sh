@@ -62,9 +62,12 @@ warn() { echo "  [!]  $*"; }
 err()  { echo "  [ERR] $*"; }
 
 find_sim_window() {
+    # wmctrl reads the WM's _NET_CLIENT_LIST — a single X11 round-trip to the root
+    # window, avoiding the recursive XQueryTree scan that causes xdotool search to
+    # hang indefinitely on this WSLg/XWayland setup.
     for pattern in "CIQ Simulator" "Connect IQ" "Garmin" "Simulator"; do
         local wid
-        wid=$(xdotool search --name "$pattern" 2>/dev/null | tail -1)
+        wid=$(wmctrl -l 2>/dev/null | grep -i "$pattern" | awk '{print $1}' | tail -1)
         [ -n "$wid" ] && { echo "$wid"; return; }
     done
     echo ""
@@ -80,9 +83,7 @@ refresh_window() {
 }
 
 # Map shell key names to "VK_CODE KEYDOWN_LPARAM KEYUP_LPARAM".
-# Arrow keys are extended keys (bit 24 in lParam) — without this the WSLg
-# RDP bridge cannot correctly translate them to Linux/Wayland key events.
-# lParam bits: 0-15 repeat(1), 16-23 scan code, 24 extended, 30-31 transition.
+# Arrow keys are extended keys (bit 24 in lParam).
 _vk() {
     case "$1" in
         Return)  echo "0x0D 0x001C0001 0xC01C0001" ;;  # VK_RETURN, scan=0x1C
@@ -95,14 +96,9 @@ _vk() {
 
 # Win32 PostMessage key injection.
 # PostMessage delivers WM_KEYDOWN directly to the simulator's Win32 message queue,
-# bypassing Wayland/X11 focus entirely (XTEST fails because Weston WM does not
-# honour XSetInputFocus or _NET_ACTIVE_WINDOW from a background bash process).
-# NOTE: SetForegroundWindow is intentionally NOT called here — it causes the Garmin
-# CIQ runtime to receive spurious WM_ACTIVATE / FocusIn events that the CIQ
-# BehaviorDelegate registers as phantom button presses, corrupting navigation state.
-# Instead, setup_simulator runs enough screenshot warm-up cycles (each of which
-# calls BringWindowToTop) so that Windows grants persistent foreground permission
-# to the simulator before the first test key press is sent.
+# bypassing Wayland/X11 focus (XTEST fails — Weston WM blocks XSetInputFocus
+# from background processes). SetForegroundWindow is intentionally NOT called to
+# avoid WM_ACTIVATE phantom button presses in the CIQ runtime.
 _win32_key() {
     local vk="$1" lpdn="$2" lpup="$3" duration_ms="${4:-80}"
     powershell.exe -NoProfile -Command "
@@ -139,7 +135,7 @@ _press() {
     lpdn=$(echo "$vklp" | cut -d' ' -f2)
     lpup=$(echo "$vklp" | cut -d' ' -f3)
     _win32_key "$vk" "$lpdn" "$lpup" 80
-    sleep 0.3  # let the app process the key event
+    sleep 0.3
 }
 
 _hold() {
@@ -155,52 +151,76 @@ _hold() {
     sleep 0.3
 }
 
-_screenshot() {
-    local path="$1"
-
-    local win_tmp='C:\Users\Public\pomo_ss_suite.png'
-    local wsl_tmp
-    wsl_tmp=$(wslpath -u "$win_tmp")
-
-    # Get window geometry AND capture inside the same PowerShell call to eliminate
-    # the race condition where the window drifts between xdotool query and CopyFromScreen.
-    # Drift of even 2-3px shifts the bezel into the r=132-145 overflow check band.
-    # Simulator was set TOPMOST at setup — no BringWindowToTop needed (that would
-    # generate WM_ACTIVATE → CIQ sees phantom button presses, corrupting nav state).
+_dismiss_startup_dialog() {
+    # The simulator shows a crash-recovery GTK dialog if the previous session
+    # ended with SIGKILL. The dialog blocks X11 — any concurrent X11 query
+    # (xdotool, wmctrl) causes gtk_message_dialog_new() to fail and crash the
+    # simulator's GUI thread.
+    #
+    # Strategy: call this AFTER port 1234 is confirmed open. By that time the
+    # dialog has been rendered for 10+ seconds and its Win32 HWND is stable.
+    # Send WM_CLOSE + VK_RETURN to any dialog-sized window from known titles.
+    # No X11 involved — safe to call even while X11 is "blocked" by the dialog.
     powershell.exe -NoProfile -Command "
 Add-Type -TypeDefinition @'
 using System; using System.Runtime.InteropServices; using System.Text;
-public static class W {
-    [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L,T,R,B; }
+public static class D {
     public delegate bool EWP(IntPtr h, IntPtr l);
     [DllImport(\"user32.dll\")] public static extern bool EnumWindows(EWP p, IntPtr l);
-    [DllImport(\"user32.dll\")] public static extern int  GetWindowText(IntPtr h, StringBuilder s, int n);
+    [DllImport(\"user32.dll\")] public static extern int GetWindowText(IntPtr h, StringBuilder s, int n);
     [DllImport(\"user32.dll\")] public static extern bool IsWindowVisible(IntPtr h);
+    [DllImport(\"user32.dll\")] public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);
     [DllImport(\"user32.dll\")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
-    public static IntPtr Find(string t) {
-        IntPtr f=IntPtr.Zero;
-        EnumWindows((h,l)=>{ var s=new StringBuilder(256); GetWindowText(h,s,256);
-            if(s.ToString().Contains(t)&&IsWindowVisible(h)){f=h;return false;} return true; },IntPtr.Zero);
-        return f; }
+    [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L,T,R,B; }
+    public static void DismissAll() {
+        string[] kws = { \"Garmin\", \"CIQ\", \"Simulator\", \"Connect IQ\" };
+        EnumWindows((h, l) => {
+            if (!IsWindowVisible(h)) return true;
+            var sb = new StringBuilder(256); GetWindowText(h, sb, 256);
+            var t = sb.ToString();
+            foreach (var kw in kws) {
+                if (t.Contains(kw)) {
+                    RECT r; GetWindowRect(h, out r);
+                    int w = r.R - r.L, ht = r.B - r.T;
+                    if (w < 900 && ht < 400) {  // dialog-sized (not the main 446x700 window)
+                        PostMessage(h, 0x0010, IntPtr.Zero, IntPtr.Zero);  // WM_CLOSE
+                        System.Threading.Thread.Sleep(80);
+                        PostMessage(h, 0x0100, (IntPtr)0x0D, (IntPtr)0x001C0001);  // WM_KEYDOWN Return
+                        System.Threading.Thread.Sleep(80);
+                        PostMessage(h, 0x0101, (IntPtr)0x0D, (IntPtr)0xC01C0001);  // WM_KEYUP Return
+                    }
+                    break;
+                }
+            }
+            return true;
+        }, IntPtr.Zero);
+    }
 }
 '@
-Add-Type -AssemblyName System.Drawing
-Start-Sleep -Milliseconds 400
-\$hwnd = [W]::Find('CIQ Simulator')
-\$wr = New-Object W+RECT
-[void][W]::GetWindowRect(\$hwnd, [ref]\$wr)
-\$wx = \$wr.L; \$wy = \$wr.T
-\$ww = \$wr.R - \$wr.L; \$wh = \$wr.B - \$wr.T
-\$full = New-Object System.Drawing.Bitmap(\$ww, \$wh)
-\$g    = [System.Drawing.Graphics]::FromImage(\$full)
-\$g.CopyFromScreen(\$wx, \$wy, 0, 0, \$full.Size)
-\$g.Dispose()
-\$rect = New-Object System.Drawing.Rectangle($WATCH_CROP_X, $WATCH_CROP_Y, $WATCH_CROP_W, $WATCH_CROP_H)
-\$crop = \$full.Clone(\$rect, \$full.PixelFormat)
-\$crop.Save('$win_tmp')
-\$full.Dispose(); \$crop.Dispose()
+[D]::DismissAll()
     " 2>/dev/null || true
-    cp "$wsl_tmp" "$path" 2>/dev/null || true
+}
+
+_screenshot() {
+    local path="$1"
+    # Read window position from simulator.ini — zero X11 interaction.
+    # The simulator writes its position to ini on clean exit and restores it on
+    # startup, so the ini always reflects the current window's origin.
+    # setup_simulator() pre-sets WindowX=0 WindowY=0 before launching so that
+    # the watch face is always at a predictable screen position.
+    local ini="$HOME/.Garmin/ConnectIQ/simulator.ini"
+    local wx=0 wy=0
+    if [ -f "$ini" ]; then
+        wx=$(grep -m1 '^WindowX=' "$ini" | cut -d= -f2); wx=${wx:-0}
+        wy=$(grep -m1 '^WindowY=' "$ini" | cut -d= -f2); wy=${wy:-0}
+    fi
+    local cap_x=$(( wx + WATCH_CROP_X ))
+    local cap_y=$(( wy + WATCH_CROP_Y ))
+    # Clamp to non-negative (window can be positioned slightly off-screen)
+    [ "$cap_x" -lt 0 ] && cap_x=0
+    [ "$cap_y" -lt 0 ] && cap_y=0
+    # grim reads from Weston compositor framebuffer — Wayland only, no X11.
+    WAYLAND_DISPLAY=wayland-0 grim -g "${cap_x},${cap_y} ${WATCH_CROP_W}x${WATCH_CROP_H}" "$path" 2>/dev/null || true
     sleep 0.3
 }
 
@@ -392,27 +412,39 @@ setup_simulator() {
     log "OK — $(du -sh "$PRG" | cut -f1)"
 
     step "SIMULATOR"
-    pkill -f "simulator-8.4.1" 2>/dev/null && sleep 1 || true
+    pkill -TERM -f "simulator-8.4.1" 2>/dev/null && sleep 2 || true
+
+    # Pre-set window position so the watch face lands at a predictable Wayland
+    # coordinate. WindowX=0 WindowY=0 puts the watch face at (CROP_X, CROP_Y).
+    local ini="$HOME/.Garmin/ConnectIQ/simulator.ini"
+    if [ -f "$ini" ]; then
+        sed -i 's/^WindowX=.*/WindowX=0/' "$ini"
+        sed -i 's/^WindowY=.*/WindowY=0/' "$ini"
+        log "simulator window anchored to (0,0)"
+    fi
 
     "$SIM_APP" &
     log "launched (pid $!)"
 
-    log "waiting for window..."
-    for i in $(seq 1 25); do
-        sleep 1
-        SIM_WID=$(find_sim_window)
-        [ -n "$SIM_WID" ] && { log "window: $SIM_WID (${i}s)"; break; }
-    done
-
-    [ -z "$SIM_WID" ] && { err "Simulator window not found."; exit 1; }
-
-    # Wait for socket
-    for i in $(seq 1 20); do
+    # Wait for the CIQ daemon's TCP socket — no X11 involved.
+    # The daemon starts independently of the GUI, so port 1234 opens even while
+    # a crash-recovery dialog is blocking the GUI thread.
+    log "waiting for simulator socket (port 1234)..."
+    local socket_ready=false
+    for i in $(seq 1 40); do
         python3 -c "import socket; s=socket.create_connection(('localhost',1234),0.5); s.close()" 2>/dev/null \
-            && { log "socket ready (${i}s)"; break; }
+            && { log "socket ready (${i}s)"; socket_ready=true; break; }
         sleep 1
     done
-    sleep 2
+    $socket_ready || { err "Simulator socket never opened."; exit 1; }
+
+    # By the time port 1234 opens the crash-recovery dialog (if any) has been
+    # showing for 10+ seconds and its Win32 HWND is stable. Dismiss it now via
+    # Win32 PostMessage — no X11 involved.
+    log "dismissing any startup dialog..."
+    _dismiss_startup_dialog
+    sleep 3  # allow GUI thread to unblock before any other activity
+    log "dialog dismissed (or none present)"
 
     step "PUSH APP"
     monkeydo "$PRG" fr255 &
@@ -421,39 +453,7 @@ setup_simulator() {
     # CIQ runtime needs ~20s to fully initialize its input handling.
     # With < 20s, the first few key injections are silently dropped.
     sleep 20
-    refresh_window
 
-    # Make the simulator window TOPMOST (always-on-top) once.
-    # This lets _screenshot use a simple CopyFromScreen without BringWindowToTop.
-    # Avoiding BringWindowToTop/SetForegroundWindow in every screenshot is critical:
-    # those calls generate WM_ACTIVATE events that the Garmin CIQ runtime registers
-    # as spurious button presses, corrupting navigation state.
-    log "setting simulator TOPMOST..."
-    powershell.exe -NoProfile -Command "
-Add-Type -TypeDefinition @'
-using System; using System.Runtime.InteropServices; using System.Text;
-public static class T {
-    public delegate bool EWP(IntPtr h, IntPtr l);
-    [DllImport(\"user32.dll\")] public static extern bool EnumWindows(EWP p, IntPtr l);
-    [DllImport(\"user32.dll\")] public static extern int  GetWindowText(IntPtr h, StringBuilder s, int n);
-    [DllImport(\"user32.dll\")] public static extern bool IsWindowVisible(IntPtr h);
-    [DllImport(\"user32.dll\")] public static extern bool SetWindowPos(IntPtr h, IntPtr insertAfter, int x, int y, int cx, int cy, uint flags);
-    public static IntPtr Find(string t) {
-        IntPtr f=IntPtr.Zero;
-        EnumWindows((h,l)=>{ var s=new StringBuilder(256); GetWindowText(h,s,256);
-            if(s.ToString().Contains(t)&&IsWindowVisible(h)){f=h;return false;} return true; },IntPtr.Zero);
-        return f; }
-}
-'@
-\$h = [T]::Find('CIQ Simulator')
-if (\$h -ne [IntPtr]::Zero) {
-    # HWND_TOPMOST = -1; SWP_NOMOVE | SWP_NOSIZE = 0x0003
-    [void][T]::SetWindowPos(\$h, [IntPtr](-1), 0, 0, 0, 0, 0x0003)
-    Write-Host 'TOPMOST set'
-}
-    " 2>/dev/null || true
-
-    # Single warm-up screenshot to verify the pipeline works.
     log "priming screenshot pipeline..."
     _screenshot /tmp/pomo_warmup.png 2>/dev/null || true
     rm -f /tmp/pomo_warmup.png 2>/dev/null || true
@@ -462,7 +462,14 @@ if (\$h -ne [IntPtr]::Zero) {
 
 teardown_simulator() {
     kill "$MONKEY_PID" 2>/dev/null || true
-    pkill -f "simulator-8.4.1" 2>/dev/null || true
+    # SIGTERM first → wait up to 5s for clean exit → SIGKILL only if still alive.
+    # Clean shutdown prevents the crash-recovery dialog on the next run.
+    pkill -TERM -f "simulator-8.4.1" 2>/dev/null || true
+    for i in $(seq 1 10); do
+        pgrep -f "simulator-8.4.1" > /dev/null 2>&1 || break
+        sleep 0.5
+    done
+    pkill -9 -f "simulator-8.4.1" 2>/dev/null || true
 }
 
 # ── HTML report ───────────────────────────────────────────────────────────────
