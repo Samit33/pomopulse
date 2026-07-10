@@ -45,40 +45,48 @@ class PomoPulseApp extends Application.AppBase {
             tc.setWorkCompleteCallback(method(:onWorkPhaseComplete));
             tc.setAutoStopCallback(method(:onAutoStop));
             tc.setCycleCompleteCallback(method(:onCycleComplete));
+            tc.setRecordCallback(method(:onRecordTick));
         }
 
         return [view, delegate];
     }
 
+    //! Per-second recording during active focus. Lives at app level so
+    //! scores keep flowing even while stats/settings views are open.
+    function onRecordTick() as Void {
+        var fc = _flowCalculator;
+        var sm = _sessionManager;
+        if (fc != null && sm != null) {
+            sm.recordFlowScore(fc.getFlowScore());
+        }
+    }
+
     //! Pomodoro work phase completed naturally
     function onWorkPhaseComplete() as Void {
         var duration = 0;
-        var hrvScore = 50;
-        var movementScore = 50;
-        var hasBiometrics = false;
-
         var sm = _sessionManager;
+        var fc = _flowCalculator;
+
         if (sm != null) {
             duration = sm.getSessionDuration();
+            if (fc != null) {
+                sm.setFlowMetrics(fc.getTimeToFlow(), fc.getLongestFlowStreak());
+            }
             sm.stopSession();
         }
         if (_sensorManager != null) {
             _sensorManager.stopSensors();
         }
-        var fc = _flowCalculator;
+
+        var stats = collectSessionStats(fc, duration, MODE_POMODORO, "Pomodoro", false);
         if (fc != null) {
-            hrvScore      = fc.getHrvScore();
-            movementScore = fc.getMovementScore();
-            hasBiometrics = fc.hasBiometrics();
+            fc.finalizeSession();
             fc.reset();
         }
 
-        if (duration >= 600) {
-            var summaryView = new SessionSummaryView(duration, hrvScore, movementScore,
-                                                      MODE_POMODORO, "Pomodoro", false, hasBiometrics);
-            var summaryDelegate = new SessionSummaryDelegate();
-            WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
-        }
+        var summaryView = new SessionSummaryView(stats);
+        var summaryDelegate = new SessionSummaryDelegate(summaryView);
+        WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
     }
 
     //! Flowtimer auto-stop (120-min ceiling or 15-min pause timeout)

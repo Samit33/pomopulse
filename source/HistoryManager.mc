@@ -211,6 +211,83 @@ class HistoryManager {
         return totalWeighted / totalSamples;
     }
 
+    //! Total focus seconds for the day N days ago (0 = today), local time
+    function getFocusTimeForDaysAgo(daysAgo as Number) as Number {
+        if (_sessions == null) {
+            return 0;
+        }
+        var dayStart = Time.today().value() - (daysAgo * 86400);
+        var dayEnd = dayStart + 86400;
+        var total = 0;
+        for (var i = 0; i < _sessions.size(); i++) {
+            var session = _sessions[i];
+            if (session.hasKey("timestamp") && session.hasKey("duration")) {
+                var ts = session["timestamp"] as Number;
+                if (ts >= dayStart && ts < dayEnd) {
+                    total += (session["duration"] as Number);
+                }
+            }
+        }
+        return total;
+    }
+
+    //! Focus seconds per day for the last 7 days, oldest first
+    function getLast7DayFocus() as Array<Number> {
+        var days = [] as Array<Number>;
+        for (var d = 6; d >= 0; d--) {
+            days.add(getFocusTimeForDaysAgo(d));
+        }
+        return days;
+    }
+
+    //! Consecutive days (ending today or yesterday) with at least one session
+    function getCurrentStreakDays() as Number {
+        var streak = 0;
+        // A streak is still alive if yesterday had a session, even when
+        // today's first session hasn't happened yet
+        var start = getFocusTimeForDaysAgo(0) > 0 ? 0 : 1;
+        for (var d = start; d < 365; d++) {
+            if (getFocusTimeForDaysAgo(d) > 0) {
+                streak++;
+            } else {
+                break;
+            }
+        }
+        return streak;
+    }
+
+    //! Best single day of focus in the stored history (last ~30 days)
+    function getBestDayFocusTime() as Number {
+        var best = 0;
+        for (var d = 0; d < 30; d++) {
+            var dayTotal = getFocusTimeForDaysAgo(d);
+            if (dayTotal > best) {
+                best = dayTotal;
+            }
+        }
+        return best;
+    }
+
+    //! Best session average flow score in stored history
+    function getBestSessionFlowScore() as Number {
+        if (_sessions == null) {
+            return 0;
+        }
+        var best = 0;
+        for (var i = 0; i < _sessions.size(); i++) {
+            var session = _sessions[i];
+            if (session.hasKey("avgFlowScore") && session.hasKey("samples")) {
+                if ((session["samples"] as Number) > 0) {
+                    var score = session["avgFlowScore"] as Number;
+                    if (score > best) {
+                        best = score;
+                    }
+                }
+            }
+        }
+        return best;
+    }
+
     //! Format duration as HH:MM:SS or MM:SS
     function formatDuration(seconds as Number) as String {
         var hours = seconds / 3600;

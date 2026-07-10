@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <properties>
     <property id="timerMode" type="number">0</property>
-    <property id="workDuration" type="number">1500</property>
-    <property id="shortBreakDuration" type="number">300</property>
-    <property id="longBreakDuration" type="number">900</property>
+    <!-- Durations stored in minutes to match settings.xml ranges;
+         legacy installs stored seconds and are migrated on load -->
+    <property id="workDuration" type="number">25</property>
+    <property id="shortBreakDuration" type="number">5</property>
+    <property id="longBreakDuration" type="number">15</property>
+    <!-- Live flow-zone indicator during focus: 1 = on, 0 = off -->
+    <property id="liveFlow" type="number">1</property>
 </properties>

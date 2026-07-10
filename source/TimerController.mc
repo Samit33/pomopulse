@@ -58,8 +58,12 @@ class TimerController {
     private var _shortBreakDuration as Number;
     private var _longBreakDuration as Number;
 
+    // Whether the current break is a long one (set when the break is created)
+    private var _isLongBreak as Boolean = false;
+
     // Callbacks
     private var _tickCallback as Method?;
+    private var _recordCallback as Method?;
     private var _workCompleteCallback as Method?;
     private var _autoStopCallback as Method?;
     private var _cycleCompleteCallback as Method?;
@@ -67,9 +71,9 @@ class TimerController {
     //! Constructor
     function initialize() {
         _mode = loadSetting("timerMode", MODE_FLOWTIMER) as TimerMode;
-        _workDuration = loadSetting("workDuration", DEFAULT_WORK_DURATION) as Number;
-        _shortBreakDuration = loadSetting("shortBreakDuration", DEFAULT_SHORT_BREAK) as Number;
-        _longBreakDuration = loadSetting("longBreakDuration", DEFAULT_LONG_BREAK) as Number;
+        _workDuration = loadDurationSetting("workDuration", DEFAULT_WORK_DURATION);
+        _shortBreakDuration = loadDurationSetting("shortBreakDuration", DEFAULT_SHORT_BREAK);
+        _longBreakDuration = loadDurationSetting("longBreakDuration", DEFAULT_LONG_BREAK);
         resetToIdle();
     }
 
@@ -82,10 +86,31 @@ class TimerController {
         return defaultValue;
     }
 
+    //! Load a duration setting, returned in seconds.
+    //! Properties store minutes (so Garmin Connect app settings work),
+    //! but legacy installs stored seconds — values > 120 are treated as such.
+    private function loadDurationSetting(key as String, defaultSeconds as Number) as Number {
+        var value = Application.Properties.getValue(key);
+        if (value == null || !(value instanceof Number)) {
+            return defaultSeconds;
+        }
+        var num = value as Number;
+        if (num > 120) {
+            return num;  // Legacy value already in seconds
+        }
+        return num * 60;
+    }
+
     // ── Callbacks ──────────────────────────────────────────────
 
     function setTickCallback(callback as Method?) as Void {
         _tickCallback = callback;
+    }
+
+    //! App-level per-second callback during active work — used to record
+    //! flow scores even while other views (stats, settings) are shown.
+    function setRecordCallback(callback as Method?) as Void {
+        _recordCallback = callback;
     }
 
     function setWorkCompleteCallback(callback as Method?) as Void {
@@ -210,7 +235,7 @@ class TimerController {
             // 90-minute nudge
             if (!_nudgeFired && _activeSeconds >= FLOW_NUDGE_TIME) {
                 _nudgeFired = true;
-                vibrate();  // Gentle nudge
+                vibrateGentle();
             }
 
             // 120-minute hard ceiling
@@ -256,6 +281,12 @@ class TimerController {
             }
         }
 
+        // Record biometrics during active focus, regardless of visible view
+        if (_recordCallback != null &&
+            (_state == STATE_FLOW_RUNNING || _state == STATE_POMO_WORK)) {
+            _recordCallback.invoke();
+        }
+
         if (_tickCallback != null) {
             _tickCallback.invoke();
         }
@@ -286,8 +317,10 @@ class TimerController {
         var breakDuration;
         if (_cyclePosition >= SESSIONS_PER_CYCLE) {
             breakDuration = _longBreakDuration;
+            _isLongBreak = true;
         } else {
             breakDuration = _shortBreakDuration;
+            _isLongBreak = false;
         }
         _remainingSeconds = breakDuration;
         _totalSeconds = breakDuration;
@@ -327,13 +360,24 @@ class TimerController {
         _totalSeconds = _workDuration;
     }
 
-    //! Vibration alert
+    //! Vibration alert (phase transitions)
     function vibrate() as Void {
         if (Attention has :vibrate) {
             var vibeData = [
                 new Attention.VibeProfile(100, 500),
                 new Attention.VibeProfile(0, 200),
                 new Attention.VibeProfile(100, 500)
+            ] as Array<Attention.VibeProfile>;
+            Attention.vibrate(vibeData);
+        }
+    }
+
+    //! Soft single pulse — used for the 90-min nudge so it doesn't
+    //! yank the user out of flow
+    function vibrateGentle() as Void {
+        if (Attention has :vibrate) {
+            var vibeData = [
+                new Attention.VibeProfile(50, 400)
             ] as Array<Attention.VibeProfile>;
             Attention.vibrate(vibeData);
         }
@@ -479,14 +523,16 @@ class TimerController {
 
     //! Is the current break a long break?
     function isLongBreak() as Boolean {
-        return _totalSeconds == _longBreakDuration;
+        return _isLongBreak;
     }
 
     // ── Settings ──────────────────────────────────────────────
+    // Properties store minutes so on-watch and Garmin Connect app
+    // settings agree (settings.xml ranges are in minutes).
 
     function setWorkDuration(minutes as Number) as Void {
         _workDuration = minutes * 60;
-        Application.Properties.setValue("workDuration", _workDuration);
+        Application.Properties.setValue("workDuration", minutes);
         if (_state == STATE_IDLE && _mode == MODE_POMODORO) {
             _remainingSeconds = _workDuration;
             _totalSeconds = _workDuration;
@@ -495,12 +541,12 @@ class TimerController {
 
     function setShortBreakDuration(minutes as Number) as Void {
         _shortBreakDuration = minutes * 60;
-        Application.Properties.setValue("shortBreakDuration", _shortBreakDuration);
+        Application.Properties.setValue("shortBreakDuration", minutes);
     }
 
     function setLongBreakDuration(minutes as Number) as Void {
         _longBreakDuration = minutes * 60;
-        Application.Properties.setValue("longBreakDuration", _longBreakDuration);
+        Application.Properties.setValue("longBreakDuration", minutes);
     }
 
     function getWorkDurationMinutes() as Number {
