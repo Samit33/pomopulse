@@ -18,23 +18,33 @@ PomoPulse - A Garmin Connect IQ application for Forerunner 255 that combines Pom
 - `source/PomoPulseView.mc` - Main timer UI (work/break/idle screens, flow score display)
 - `source/PomoPulseDelegate.mc` - Button input handler for main view
 - `source/TimerController.mc` - Work/break state machine with Pomodoro logic
-- `source/FlowScoreCalculator.mc` - Weighted algorithm combining HRV, HR stability, movement, stress, SpO2
-- `source/SensorManager.mc` - Real-time sensor data collection (HR, accelerometer, SpO2)
+- `source/FlowScoreCalculator.mc` - Flow engine: personal-baseline HRV + movement score, zones, streaks, trend buffer
+- `source/SensorManager.mc` - Real-time sensor data collection (HR, accelerometer, beat intervals)
 - `source/HrvAnalyzer.mc` - RMSSD calculation from beat intervals
 - `source/SessionManager.mc` - FIT recording with custom FlowScore field
-- `source/HistoryManager.mc` - Session persistence using Storage API
-- `source/StatsView.mc` - Historical stats screen (UP button)
-- `source/SessionSummaryView.mc` - Post-session summary screen (avg/peak flow, zone %)
-- `source/SettingsView.mc` - Settings menu (work/break durations, long break interval)
+- `source/HistoryManager.mc` - Session persistence + daily/weekly/streak analytics (Storage API)
+- `source/StatsView.mc` - Stats screen (UP button): 3 pages — Today / Week chart / Records
+- `source/SessionSummaryView.mc` - Post-session summary: flow hero, sparkline, zone bar; DOWN toggles signal detail
+- `source/SettingsView.mc` - Settings menu (mode, durations, live flow toggle, reset baseline, clear history)
 
 ## Flow Score Algorithm
 
-Weighted composite (0-100):
-- HRV (RMSSD): 35% - Higher parasympathetic activity = better cognitive performance
-- HR Stability: 20% - Low HR variance = sustained arousal
-- Movement: 20% - Physical stillness indicates deep focus
-- Stress (inverted): 20% - Lower Garmin stress = higher score
-- SpO2: 5% - Minor factor, penalizes only if compromised
+Weighted composite (0-100), EMA-smoothed:
+- HRV (RMSSD): 75% - Scored against a personal baseline learned across sessions
+  (persisted in Storage under `hrvBaseline`; falls back to an absolute 20-100ms
+  band until calibrated). HRV dropouts hold the last score instead of zeroing.
+- Movement: 25% - Physical stillness indicates deep focus
+
+Session engine (FlowScoreCalculator):
+- First 60s is warm-up: score computed but not judged (no zone/peak/min/streak tracking)
+- Zones: Flow (>=70), Focused (40-69), Building (<40)
+- "Entered flow" = 60 consecutive seconds in the flow zone (drives time-to-flow);
+  longest flow streak also tracked
+- Per-minute averaged trend buffer feeds the post-session sparkline
+
+Flow scores are recorded at app level via TimerController's record callback, so
+recording continues while stats/settings views are open. Duration properties
+store minutes (matching settings.xml); legacy seconds values are migrated on load.
 
 ## Environment Setup
 
@@ -121,6 +131,9 @@ sudo apt-get install -y grim
 # Save new baseline screenshots (after intentional UI changes)
 ./tests/ui-suite.sh --save-baseline
 ```
+
+Note: after any intentional UI change, re-run with `--save-baseline` first —
+the stored baselines are stale otherwise and every visual test will FAIL.
 
 Screenshots use `grim` (Wayland compositor capture via `WAYLAND_DISPLAY=wayland-0`) — reads directly
 from the Weston compositor framebuffer, unaffected by window z-order. Key injection uses Win32

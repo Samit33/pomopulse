@@ -37,25 +37,21 @@ The default screen. Shows a circular progress arc, countdown timer, HR readout, 
 
 ## 2. Focus Stats View (StatsView)
 
-Opened via UP from main view. Shows today's total focus time, session count, and a scrollable list of individual sessions (start time + duration).
+Opened via UP from main view. Three pages navigated with UP/DOWN; page dots at the bottom show position.
 
-### Display
+### Pages
 
-- Title: "Focus Stats"
-- "Today" label with total focus time (green, large)
-- Session count (dim)
-- Divider line
-- Scrollable session list: `#N  HH:MM  duration` per row (3 visible at a time)
-- Arrow indicators when more sessions exist above/below
-- Shows "No sessions today" if no sessions recorded today
+- **Page 1 — Today**: total focus time (green, large), average flow score, Flow/Pomo mode breakdown, and the 3 most recent sessions (`F/P  HH:MM  flow-score  duration`, `+N more` if additional)
+- **Page 2 — Week**: last-7-days focus bar chart (today highlighted teal), weekly total, day-of-week letters
+- **Page 3 — Records**: current day streak, best day, best session flow score, total sessions, all-time focus
 
 ### Button actions
 
 | Button | Action |
 |--------|--------|
 | **BACK/LAP** | Return to main timer view |
-| **UP** | Scroll session list up |
-| **DOWN** | Scroll session list down |
+| **UP** | Previous page |
+| **DOWN** | Next page |
 
 ---
 
@@ -65,14 +61,19 @@ Shown automatically after a work session completes (natural completion or BACK r
 
 ### Display
 
-- Title: "Session Done"
-- Duration in minutes (large number)
-- "min focus" label
-- Three signal rows with Low/Med/High ratings (color-coded green/amber/red):
-  - HRV Quality
-  - Stillness
-  - Recovery
-- "Press any key" hint at bottom
+**Page 1 — Flow overview:**
+- Title: "Session Done" / "Pomodoro Done"
+- Average flow score as hero number (colored by zone: teal >= 70, blue >= 40)
+- Duration + peak score line
+- Minute-by-minute flow sparkline with flow-threshold guide line
+- Stacked zone bar (time in flow / focused / building)
+- "First flow in N min" or "Flow zone not reached"
+- Sessions with no HRV data show duration as hero and a watch-fit hint instead
+
+**Page 2 — Signals (via DOWN/UP):**
+- HRV Quality and Stillness with Low/Med/High ratings
+- Best (longest) flow streak, time in flow %
+- Baseline calibration status
 
 ### Button actions
 
@@ -80,8 +81,8 @@ Shown automatically after a work session completes (natural completion or BACK r
 |--------|--------|
 | **START/STOP** | Dismiss, return to main view |
 | **BACK/LAP** | Dismiss, return to main view |
-| **UP** | Dismiss, return to main view |
-| **DOWN** | Dismiss, return to main view |
+| **UP** | Toggle overview/signals page |
+| **DOWN** | Toggle overview/signals page |
 
 ---
 
@@ -93,9 +94,12 @@ Opened via long-press UP from main view. Standard Garmin Menu2.
 
 | Item | Action |
 |------|--------|
-| Work Duration | Opens duration picker (15-60 min) |
-| Short Break | Opens duration picker (3-15 min) |
-| Long Break | Opens duration picker (10-30 min) |
+| Timer Mode | Flowtimer / Pomodoro picker |
+| Work Duration | Opens duration picker (15-60 min) — Pomodoro mode only |
+| Short Break | Opens duration picker (3-15 min) — Pomodoro mode only |
+| Long Break | Opens duration picker (10-30 min) — Pomodoro mode only |
+| Live Flow | Toggles the on-screen live flow-zone indicator (On/Off) |
+| Reset Baseline | Shows "Reset HRV baseline?" confirmation — forgets learned HRV calibration |
 | Clear History | Shows "Clear all history?" confirmation |
 
 ### Button actions

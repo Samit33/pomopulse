@@ -31,6 +31,10 @@ class SessionManager {
     private var _mode as Number = 0;          // 0=Flowtimer, 1=Pomodoro
     private var _converted as Boolean = false;
 
+    // Flow metrics supplied by the calculator just before saving
+    private var _timeToFlow as Number = -1;
+    private var _longestFlowStreak as Number = 0;
+
     private const FLOW_SCORE_FIELD_ID = 0;
     private const MIN_SESSION_SECONDS = 600;  // 10 minutes
 
@@ -47,6 +51,12 @@ class SessionManager {
     //! Mark session as converted (abandoned Pomodoro → Flowtimer)
     function setConverted(converted as Boolean) as Void {
         _converted = converted;
+    }
+
+    //! Attach calculator-derived flow metrics before stopping the session
+    function setFlowMetrics(timeToFlow as Number, longestFlowStreak as Number) as Void {
+        _timeToFlow = timeToFlow;
+        _longestFlowStreak = longestFlowStreak;
     }
 
     //! Start a new recording session
@@ -182,7 +192,9 @@ class SessionManager {
                         "samples" => _flowScoreSamples,
                         "mode" => _mode,
                         "label" => label,
-                        "converted" => _converted
+                        "converted" => _converted,
+                        "timeToFlow" => _timeToFlow,
+                        "longestStreak" => _longestFlowStreak
                     });
                 }
 
@@ -243,6 +255,8 @@ class SessionManager {
         _timeInFlowZone = 0;
         _activeSeconds = 0;
         _converted = false;
+        _timeToFlow = -1;
+        _longestFlowStreak = 0;
     }
 
     function isRecording() as Boolean {

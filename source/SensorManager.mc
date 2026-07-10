@@ -10,6 +10,10 @@ class SensorManager {
     private var _hrvAnalyzer    as HrvAnalyzer;
     private var _sensorsEnabled as Boolean = false;
 
+    // While paused, HR keeps displaying but the flow calculator is not fed,
+    // so paused time can't pollute zone/trend/streak stats
+    private var _paused as Boolean = false;
+
     // Current sensor values
     private var _heartRate      as Number = 0;
     private var _accelMagnitude as Number = 0;
@@ -46,6 +50,7 @@ class SensorManager {
             }
 
             _sensorsEnabled = true;
+            _paused = false;
             _hrvAnalyzer.reset();
 
         } catch (ex) {
@@ -88,7 +93,14 @@ class SensorManager {
             }
         }
 
-        updateFlowCalculator();
+        if (!_paused) {
+            updateFlowCalculator();
+        }
+    }
+
+    //! Pause/resume feeding the flow calculator (sensors stay on for HR display)
+    function setPaused(paused as Boolean) as Void {
+        _paused = paused;
     }
 
     //! Sensor data listener callback for HRV data
@@ -104,14 +116,18 @@ class SensorManager {
         }
     }
 
-    //! Update flow calculator with current sensor data
+    //! Update flow calculator with current sensor data.
+    //! HRV is only considered valid once enough clean beat intervals have
+    //! accumulated — otherwise dropouts would be scored as low HRV.
     private function updateFlowCalculator() as Void {
         if (_flowCalculator == null) {
             return;
         }
+        var hrvValid = _hrvAnalyzer.getIntervalCount() >= 10;
         _flowCalculator.updateSensorData(
             _hrvAnalyzer.getRmssd(),
-            _accelMagnitude
+            _accelMagnitude,
+            hrvValid
         );
     }
 

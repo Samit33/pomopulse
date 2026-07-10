@@ -1,7 +1,14 @@
+import Toybox.Application;
 import Toybox.Graphics;
 import Toybox.Lang;
 import Toybox.System;
 import Toybox.WatchUi;
+
+//! Whether the live flow-zone indicator is enabled (defaults to on)
+function isLiveFlowEnabled() as Boolean {
+    var value = Application.Properties.getValue("liveFlow");
+    return !(value instanceof Number && (value as Number) == 0);
+}
 
 //! Settings menu with mode selector and conditional Pomodoro settings
 class SettingsMenu extends WatchUi.Menu2 {
@@ -23,6 +30,9 @@ class SettingsMenu extends WatchUi.Menu2 {
             addItem(new WatchUi.MenuItem("Long Break", null, :longBreak, null));
         }
 
+        addItem(new WatchUi.MenuItem("Live Flow", isLiveFlowEnabled() ? "On" : "Off",
+                                     :liveFlow, null));
+        addItem(new WatchUi.MenuItem("Reset Baseline", "HRV calibration", :resetBaseline, null));
         addItem(new WatchUi.MenuItem("Clear History", null, :clearHistory, null));
     }
 }
@@ -49,6 +59,13 @@ class SettingsMenuDelegate extends WatchUi.Menu2InputDelegate {
             showDurationPicker("Short Break", tc.getShortBreakDurationMinutes(), :shortBreak);
         } else if (id == :longBreak && tc != null) {
             showDurationPicker("Long Break", tc.getLongBreakDurationMinutes(), :longBreak);
+        } else if (id == :liveFlow) {
+            var enabled = !isLiveFlowEnabled();
+            Application.Properties.setValue("liveFlow", enabled ? 1 : 0);
+            item.setSubLabel(enabled ? "On" : "Off");
+            WatchUi.requestUpdate();
+        } else if (id == :resetBaseline) {
+            showResetBaselineConfirmation();
         } else if (id == :clearHistory) {
             showClearHistoryConfirmation();
         }
@@ -69,6 +86,11 @@ class SettingsMenuDelegate extends WatchUi.Menu2InputDelegate {
     private function showClearHistoryConfirmation() as Void {
         var dialog = new WatchUi.Confirmation("Clear all history?");
         WatchUi.pushView(dialog, new ClearHistoryDelegate(), WatchUi.SLIDE_LEFT);
+    }
+
+    private function showResetBaselineConfirmation() as Void {
+        var dialog = new WatchUi.Confirmation("Reset HRV baseline?");
+        WatchUi.pushView(dialog, new ResetBaselineDelegate(), WatchUi.SLIDE_LEFT);
     }
 
     function onBack() as Void {
@@ -175,6 +197,24 @@ class DurationPickerDelegate extends WatchUi.Menu2InputDelegate {
 
     function onBack() as Void {
         WatchUi.popView(WatchUi.SLIDE_RIGHT);
+    }
+}
+
+//! Reset HRV baseline confirmation delegate
+class ResetBaselineDelegate extends WatchUi.ConfirmationDelegate {
+
+    function initialize() {
+        ConfirmationDelegate.initialize();
+    }
+
+    function onResponse(response as Confirm) as Boolean {
+        if (response == WatchUi.CONFIRM_YES) {
+            var fc = getApp().getFlowCalculator();
+            if (fc != null) {
+                fc.resetBaseline();
+            }
+        }
+        return true;
     }
 }
 

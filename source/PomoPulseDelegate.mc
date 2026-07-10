@@ -162,12 +162,19 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
         if (sm != null) {
             sm.pauseSession();
         }
+        var sensor = _sensorManager;
+        if (sensor != null) {
+            sensor.setPaused(true);
+        }
     }
 
     private function resumeRecording() as Void {
         var sensor = _sensorManager;
-        if (sensor != null && !sensor.areSensorsEnabled()) {
-            sensor.startSensors();
+        if (sensor != null) {
+            if (!sensor.areSensorsEnabled()) {
+                sensor.startSensors();
+            }
+            sensor.setPaused(false);
         }
         var sm = _sessionManager;
         if (sm != null) {
@@ -189,23 +196,13 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
     //! Save session and show summary screen
     private function saveAndShowSummary() as Void {
         var duration = 0;
-        var hrvScore = 50;
-        var movementScore = 50;
         var mode = MODE_FLOWTIMER;
         var label = "Short flow";
-        var converted = false;
-        var hasBiometrics = false;
 
         var sm = _sessionManager;
+        var fc = _flowCalculator;
         if (sm != null) {
             duration = sm.getSessionDuration();
-        }
-
-        var fc = _flowCalculator;
-        if (fc != null) {
-            hrvScore = fc.getHrvScore();
-            movementScore = fc.getMovementScore();
-            hasBiometrics = fc.hasBiometrics();
         }
 
         var tc = _timerController;
@@ -219,21 +216,23 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
         }
 
         if (sm != null) {
+            if (fc != null) {
+                sm.setFlowMetrics(fc.getTimeToFlow(), fc.getLongestFlowStreak());
+            }
             sm.stopSession();
         }
         if (_sensorManager != null) {
             _sensorManager.stopSensors();
         }
 
-        var summaryView = new SessionSummaryView(duration, hrvScore, movementScore,
-                                                  mode, label, converted, hasBiometrics);
-        var summaryDelegate = new SessionSummaryDelegate();
-        WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
-    }
+        var stats = collectSessionStats(fc, duration, mode, label, false);
+        if (fc != null) {
+            fc.finalizeSession();
+        }
 
-    //! Called by TimerController when work phase completes naturally (Pomodoro)
-    function onWorkPhaseComplete() as Void {
-        saveAndShowSummary();
+        var summaryView = new SessionSummaryView(stats);
+        var summaryDelegate = new SessionSummaryDelegate(summaryView);
+        WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
     }
 
     //! Called by TimerController on auto-stop (Flowtimer ceiling/pause timeout)
@@ -332,25 +331,17 @@ class ConvertConfirmDelegate extends WatchUi.ConfirmationDelegate {
         if (response == WatchUi.CONFIRM_YES) {
             // Convert: save as Flowtimer session
             var sm = _sessionManager;
+            var fc = _flowCalculator;
             if (sm != null) {
                 sm.setConverted(true);
                 sm.setSessionMode(MODE_FLOWTIMER);
+                if (fc != null) {
+                    sm.setFlowMetrics(fc.getTimeToFlow(), fc.getLongestFlowStreak());
+                }
                 sm.stopSession();
             }
             if (_sensorManager != null) {
                 _sensorManager.stopSensors();
-            }
-
-            // Show summary
-            var hrvScore = 50;
-            var movementScore = 50;
-            var hasBiometrics = false;
-            var fc = _flowCalculator;
-            if (fc != null) {
-                hrvScore = fc.getHrvScore();
-                movementScore = fc.getMovementScore();
-                hasBiometrics = fc.hasBiometrics();
-                fc.reset();
             }
 
             var tc = _timerController;
@@ -359,9 +350,14 @@ class ConvertConfirmDelegate extends WatchUi.ConfirmationDelegate {
                 label = tc.getFlowSessionLabelForDuration(_activeSeconds);
             }
 
-            var summaryView = new SessionSummaryView(_activeSeconds, hrvScore, movementScore,
-                                                      MODE_FLOWTIMER, label, true, hasBiometrics);
-            var summaryDelegate = new SessionSummaryDelegate();
+            var stats = collectSessionStats(fc, _activeSeconds, MODE_FLOWTIMER, label, true);
+            if (fc != null) {
+                fc.finalizeSession();
+                fc.reset();
+            }
+
+            var summaryView = new SessionSummaryView(stats);
+            var summaryDelegate = new SessionSummaryDelegate(summaryView);
             WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
         } else {
             // Discard entirely

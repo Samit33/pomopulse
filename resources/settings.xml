@@ -15,4 +15,10 @@
     <setting propertyKey="@Properties.longBreakDuration" title="Long Break">
         <settingConfig type="numeric" min="10" max="30" />
     </setting>
+    <setting propertyKey="@Properties.liveFlow" title="Live Flow Indicator">
+        <settingConfig type="list">
+            <listEntry value="1">On</listEntry>
+            <listEntry value="0">Off</listEntry>
+        </settingConfig>
+    </setting>
 </settings>
