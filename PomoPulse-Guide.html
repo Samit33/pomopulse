@@ -1,0 +1,744 @@
+<title>PomoPulse Field Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;450;500;600;700&display=swap">
+<style>
+  :root {
+    /* light — cool off-white with a teal bias, signal colors from the app */
+    --bg:        #EBEEEB;
+    --paper:     #F8FAF8;
+    --surface:   #FFFFFF;
+    --ink:       #10201D;
+    --ink-soft:  #43544E;
+    --muted:     #6C7B74;
+    --line:      #D6DCD6;
+    --line-soft: #E4E9E4;
+    --flow:      #0F9E8D;
+    --flow-2:    #1BC0AC;
+    --focused:   #4B7BEE;
+    --building:  #D98A28;
+    --shadow:    0 1px 2px rgba(16,32,29,.05), 0 8px 28px -12px rgba(16,32,29,.18);
+    --shadow-lg: 0 2px 6px rgba(16,32,29,.06), 0 24px 60px -24px rgba(16,32,29,.32);
+    --radius:    16px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg:        #0B1211;
+      --paper:     #0F1817;
+      --surface:   #15201E;
+      --ink:       #E9F1EE;
+      --ink-soft:  #A7B7B0;
+      --muted:     #79897F;
+      --line:      #24312D;
+      --line-soft: #1B2624;
+      --flow:      #2DD2BC;
+      --flow-2:    #57E4D2;
+      --focused:   #7EA2FF;
+      --building:  #EEAB57;
+      --shadow:    0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.6);
+      --shadow-lg: 0 2px 8px rgba(0,0,0,.45), 0 28px 70px -28px rgba(0,0,0,.75);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg:        #0B1211;
+    --paper:     #0F1817;
+    --surface:   #15201E;
+    --ink:       #E9F1EE;
+    --ink-soft:  #A7B7B0;
+    --muted:     #79897F;
+    --line:      #24312D;
+    --line-soft: #1B2624;
+    --flow:      #2DD2BC;
+    --flow-2:    #57E4D2;
+    --focused:   #7EA2FF;
+    --building:  #EEAB57;
+    --shadow:    0 1px 2px rgba(0,0,0,.4), 0 10px 30px -14px rgba(0,0,0,.6);
+    --shadow-lg: 0 2px 8px rgba(0,0,0,.45), 0 28px 70px -28px rgba(0,0,0,.75);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-weight: 400;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: 1060px; margin: 0 auto; padding: 0 24px; }
+
+  h1, h2, h3 {
+    font-family: "Bricolage Grotesque", system-ui, sans-serif;
+    font-weight: 700;
+    line-height: 1.05;
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+    margin: 0;
+  }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  .eyebrow {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--flow);
+  }
+  p { margin: 0; }
+  a { color: var(--flow); }
+
+  /* ---- section scaffolding ---- */
+  section { padding: 68px 0; border-top: 1px solid var(--line-soft); }
+  .sec-head { max-width: 640px; margin-bottom: 40px; }
+  .sec-head h2 { font-size: clamp(28px, 4vw, 40px); margin: 14px 0 12px; }
+  .sec-head p { color: var(--ink-soft); font-size: 17px; }
+  .num { color: var(--muted); }
+
+  /* ---- HERO ---- */
+  .hero {
+    border-top: none;
+    padding: 76px 0 60px;
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 48px;
+    align-items: center;
+  }
+  .hero-copy h1 { font-size: clamp(44px, 7.2vw, 82px); font-weight: 800; letter-spacing: -0.03em; }
+  .hero-copy h1 .pulse-word { color: var(--flow); }
+  .hero-lede {
+    font-size: clamp(18px, 2.2vw, 21px);
+    color: var(--ink-soft);
+    margin-top: 22px;
+    max-width: 40ch;
+  }
+  .hero-meta {
+    display: flex; flex-wrap: wrap; gap: 10px; margin-top: 30px;
+  }
+  .chip {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px; font-weight: 500;
+    padding: 7px 13px; border-radius: 999px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+    white-space: nowrap;
+  }
+  .chip b { color: var(--ink); font-weight: 600; }
+
+  .watch-stage { display: flex; justify-content: center; }
+  .watch { width: min(360px, 78vw); height: auto; filter: drop-shadow(var(--shadow-lg)); }
+
+  @keyframes ring-pulse {
+    0%,100% { opacity: .9; }
+    50%     { opacity: .35; }
+  }
+  .pulse-ring { animation: ring-pulse 3.4s ease-in-out infinite; transform-origin: center; }
+  @media (prefers-reduced-motion: reduce) { .pulse-ring { animation: none; } }
+
+  /* ---- BUTTON MAP ---- */
+  .btnmap {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 20px;
+    align-items: center;
+  }
+  .btn-col { display: flex; flex-direction: column; gap: 16px; }
+  .btn-col.left { text-align: right; align-items: flex-end; }
+  .btn-card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    padding: 15px 17px;
+    box-shadow: var(--shadow);
+    max-width: 280px;
+    width: 100%;
+  }
+  .btn-card .key {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px; font-weight: 600;
+    letter-spacing: .06em;
+    color: var(--flow);
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .btn-card .key .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--flow); display: inline-block; }
+  .btn-card p { font-size: 14px; color: var(--ink-soft); margin-top: 6px; }
+  .btn-card p b { color: var(--ink); font-weight: 600; }
+  .watch-mini { width: min(230px, 60vw); height: auto; }
+  .mid { display: flex; justify-content: center; }
+
+  /* ---- MODES ---- */
+  .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .mode {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 26px;
+    box-shadow: var(--shadow);
+    position: relative;
+    overflow: hidden;
+  }
+  .mode::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 3px;
+  }
+  .mode.flow::before   { background: linear-gradient(90deg, var(--flow), var(--flow-2)); }
+  .mode.pomo::before   { background: linear-gradient(90deg, var(--focused), #8FB0FF); }
+  .mode h3 { font-size: 24px; margin-bottom: 4px; }
+  .mode .tag {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: .12em;
+    text-transform: uppercase; font-weight: 500;
+  }
+  .mode.flow .tag { color: var(--flow); }
+  .mode.pomo .tag { color: var(--focused); }
+  .mode .philosophy { font-size: 15px; color: var(--ink-soft); margin: 14px 0 18px; font-style: italic; }
+  .mode ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 11px; }
+  .mode li { font-size: 14.5px; color: var(--ink-soft); padding-left: 24px; position: relative; }
+  .mode li b { color: var(--ink); font-weight: 600; }
+  .mode li::before {
+    content: ""; position: absolute; left: 4px; top: 8px;
+    width: 8px; height: 8px; border-radius: 2px;
+  }
+  .mode.flow li::before { background: var(--flow); }
+  .mode.pomo li::before { background: var(--focused); }
+  .mode .default-badge {
+    display: inline-block; margin-left: 8px; vertical-align: middle;
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: var(--flow); background: color-mix(in srgb, var(--flow) 14%, transparent);
+    padding: 3px 8px; border-radius: 999px;
+  }
+
+  /* ---- FLOW SCORE ---- */
+  .flow-lead { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-bottom: 34px; }
+  .signal {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 14px; padding: 22px; box-shadow: var(--shadow);
+  }
+  .signal .pct {
+    font-family: "Bricolage Grotesque", sans-serif; font-weight: 800;
+    font-size: 46px; line-height: 1; letter-spacing: -0.02em;
+  }
+  .signal.hrv .pct { color: var(--flow); }
+  .signal.move .pct { color: var(--focused); }
+  .signal h3 { font-size: 18px; margin: 10px 0 6px; }
+  .signal p { font-size: 14px; color: var(--ink-soft); }
+
+  .scale {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 28px; box-shadow: var(--shadow);
+  }
+  .scale h3 { font-size: 18px; margin-bottom: 4px; }
+  .scale > p { color: var(--ink-soft); font-size: 14.5px; margin-bottom: 22px; max-width: 60ch; }
+  .bar {
+    display: grid; grid-template-columns: 40fr 30fr 30fr; height: 62px;
+    border-radius: 10px; overflow: hidden; border: 1px solid var(--line);
+  }
+  .bar .seg { display: flex; align-items: center; justify-content: center; position: relative; }
+  .bar .seg span {
+    font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 13px;
+    color: #fff; letter-spacing: .04em;
+  }
+  .seg.building { background: var(--building); }
+  .seg.focused  { background: var(--focused); }
+  .seg.flow     { background: linear-gradient(90deg, var(--flow), var(--flow-2)); }
+  .ticks {
+    display: grid; grid-template-columns: 40fr 30fr 30fr;
+    margin-top: 8px; font-family: "IBM Plex Mono", monospace;
+    font-size: 12px; color: var(--muted);
+  }
+  .ticks span:nth-child(2) { text-align: center; }
+  .ticks span:nth-child(3) { text-align: right; }
+  .zone-notes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 24px; }
+  .zone-notes div { font-size: 13.5px; color: var(--ink-soft); }
+  .zone-notes .zh { font-weight: 600; color: var(--ink); font-family: "IBM Plex Mono", monospace; font-size: 12.5px; letter-spacing: .04em; display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+  .zone-notes .zh i { width: 9px; height: 9px; border-radius: 50%; font-style: normal; }
+  .zh .b { background: var(--building); } .zh .f { background: var(--focused); } .zh .w { background: var(--flow); }
+  .flow-facts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 26px; }
+  .fact {
+    flex: 1 1 200px; background: var(--paper); border: 1px solid var(--line-soft);
+    border-radius: 11px; padding: 15px 17px;
+  }
+  .fact .k { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--flow); font-weight: 500; letter-spacing: .04em; }
+  .fact .v { font-size: 14px; color: var(--ink-soft); margin-top: 4px; }
+  .fact .v b { color: var(--ink); font-weight: 600; }
+
+  /* ---- WALKTHROUGH ---- */
+  .steps { display: flex; flex-direction: column; gap: 0; }
+  .step {
+    display: grid; grid-template-columns: 64px 1fr; gap: 22px;
+    padding: 22px 0; border-bottom: 1px solid var(--line-soft);
+  }
+  .step:last-child { border-bottom: none; }
+  .step .n {
+    font-family: "Bricolage Grotesque", sans-serif; font-weight: 800;
+    font-size: 30px; color: var(--flow); line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .step h3 { font-size: 19px; margin-bottom: 6px; }
+  .step p { font-size: 15px; color: var(--ink-soft); max-width: 62ch; }
+  .step .press { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--ink); background: var(--paper); border: 1px solid var(--line); padding: 2px 8px; border-radius: 6px; white-space: nowrap; }
+
+  /* ---- SUMMARY + STATS ---- */
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .panel {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 26px; box-shadow: var(--shadow);
+  }
+  .panel h3 { font-size: 20px; margin-bottom: 4px; }
+  .panel > .sub { font-family: "IBM Plex Mono", monospace; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); margin-bottom: 16px; }
+  .panel ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+  .panel li { font-size: 14.5px; color: var(--ink-soft); display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: baseline; }
+  .panel li .lab { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--flow); font-weight: 500; }
+  .panel li b { color: var(--ink); font-weight: 600; }
+
+  .spark { width: 100%; height: auto; margin: 4px 0 8px; }
+
+  /* ---- SETTINGS ---- */
+  .settings-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .setting {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 12px; padding: 16px 18px; box-shadow: var(--shadow);
+    display: flex; gap: 14px; align-items: flex-start;
+  }
+  .setting .ico { color: var(--flow); flex: none; margin-top: 1px; }
+  .setting h3 { font-size: 15px; font-family: "IBM Plex Sans", sans-serif; font-weight: 600; letter-spacing: 0; }
+  .setting p { font-size: 13.5px; color: var(--ink-soft); margin-top: 3px; }
+  .setting.feature {
+    grid-column: 1 / -1;
+    border-color: color-mix(in srgb, var(--flow) 45%, var(--line));
+    background: color-mix(in srgb, var(--flow) 7%, var(--surface));
+  }
+  .setting.feature .badge {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; font-weight: 600;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--flow);
+    border: 1px solid color-mix(in srgb, var(--flow) 40%, transparent);
+    padding: 3px 8px; border-radius: 999px; margin-left: 10px; vertical-align: middle;
+  }
+  .privacy-flow { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 16px; }
+  .pf {
+    border-radius: 11px; padding: 15px 17px; font-size: 13.5px;
+    border: 1px solid var(--line);
+  }
+  .pf.on { background: color-mix(in srgb, var(--flow) 10%, var(--surface)); }
+  .pf.off { background: var(--paper); }
+  .pf .st { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 12px; letter-spacing: .06em; display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .pf.on .st { color: var(--flow); }
+  .pf.off .st { color: var(--muted); }
+  .pf .st .toggle { width: 30px; height: 17px; border-radius: 999px; position: relative; flex: none; }
+  .pf.on .st .toggle { background: var(--flow); }
+  .pf.off .st .toggle { background: var(--line); }
+  .pf .st .toggle::after { content: ""; position: absolute; top: 2px; width: 13px; height: 13px; border-radius: 50%; background: #fff; }
+  .pf.on .st .toggle::after { right: 2px; }
+  .pf.off .st .toggle::after { left: 2px; }
+  .pf p { color: var(--ink-soft); }
+  .pf .chain { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--ink); margin-top: 8px; }
+
+  /* ---- FOOTER ---- */
+  footer { padding: 46px 0 70px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 13px; }
+  footer .mono { color: var(--ink-soft); }
+
+  .callout {
+    display: flex; gap: 13px; align-items: flex-start;
+    background: var(--paper); border: 1px solid var(--line-soft);
+    border-left: 3px solid var(--flow);
+    border-radius: 10px; padding: 15px 18px; margin-top: 24px;
+    font-size: 14px; color: var(--ink-soft);
+  }
+  .callout b { color: var(--ink); font-weight: 600; }
+  .callout svg { color: var(--flow); flex: none; margin-top: 2px; }
+
+  @media (max-width: 820px) {
+    .hero { grid-template-columns: 1fr; gap: 32px; text-align: left; padding-top: 52px; }
+    .hero-copy { order: 2; }
+    .watch-stage { order: 1; }
+    .modes, .flow-lead, .two, .settings-grid, .privacy-flow, .zone-notes { grid-template-columns: 1fr; }
+    .btnmap { grid-template-columns: 1fr; gap: 26px; }
+    .btn-col.left { text-align: left; align-items: stretch; }
+    .btn-col { align-items: stretch; }
+    .btn-card { max-width: none; }
+    .mid { order: -1; }
+  }
+</style>
+
+<div class="wrap">
+
+  <!-- ============ HERO ============ -->
+  <header class="hero">
+    <div class="hero-copy">
+      <p class="eyebrow">Forerunner 255 · Focus &amp; Flow</p>
+      <h1>Pomo<span class="pulse-word">Pulse</span></h1>
+      <p class="hero-lede">A focus timer that reads your body. Every session scores how deeply you were in flow — from your heart, not a stopwatch.</p>
+      <div class="hero-meta">
+        <span class="chip"><b>2</b> modes — Flowtimer &amp; Pomodoro</span>
+        <span class="chip">Flow Score <b>0–100</b></span>
+        <span class="chip">HRV + stillness</span>
+      </div>
+    </div>
+
+    <div class="watch-stage">
+      <!-- Hero watch: round FR255 face with flow gauge -->
+      <svg class="watch" viewBox="0 0 320 320" role="img" aria-label="Forerunner 255 showing a focus session in the flow zone">
+        <defs>
+          <linearGradient id="arc" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="var(--flow)"/>
+            <stop offset="1" stop-color="var(--flow-2)"/>
+          </linearGradient>
+        </defs>
+        <!-- bezel -->
+        <circle cx="160" cy="160" r="150" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/>
+        <circle cx="160" cy="160" r="150" fill="none" stroke="var(--ink)" stroke-width="10" opacity="0.06"/>
+        <!-- screen -->
+        <circle cx="160" cy="160" r="132" fill="var(--paper)"/>
+        <!-- track -->
+        <circle cx="160" cy="160" r="112" fill="none" stroke="var(--line)" stroke-width="9" opacity="0.7"/>
+        <!-- progress arc (~68%) pulsing -->
+        <circle class="pulse-ring" cx="160" cy="160" r="112" fill="none" stroke="url(#arc)" stroke-width="9"
+                stroke-linecap="round" stroke-dasharray="479 704" transform="rotate(-90 160 160)"/>
+        <!-- flow zone label -->
+        <text x="160" y="104" text-anchor="middle" fill="var(--flow)" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="600" letter-spacing="1.5">FLOW</text>
+        <!-- timer -->
+        <text x="160" y="168" text-anchor="middle" fill="var(--ink)" font-family="Bricolage Grotesque, sans-serif" font-size="52" font-weight="800" letter-spacing="-1">24:18</text>
+        <!-- HR -->
+        <text x="160" y="200" text-anchor="middle" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace" font-size="15" font-weight="500">♥ 61 bpm</text>
+        <!-- score chip -->
+        <rect x="122" y="216" width="76" height="26" rx="13" fill="var(--flow)" opacity="0.14"/>
+        <text x="160" y="234" text-anchor="middle" fill="var(--flow)" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="600">score 82</text>
+        <!-- buttons -->
+        <rect x="4"   y="96"  width="9" height="30" rx="4" fill="var(--ink)" opacity="0.28"/>
+        <rect x="4"   y="145" width="9" height="30" rx="4" fill="var(--ink)" opacity="0.28"/>
+        <rect x="4"   y="194" width="9" height="30" rx="4" fill="var(--ink)" opacity="0.28"/>
+        <rect x="307" y="112" width="9" height="34" rx="4" fill="var(--flow)"/>
+        <rect x="307" y="174" width="9" height="34" rx="4" fill="var(--ink)" opacity="0.28"/>
+      </svg>
+    </div>
+  </header>
+
+  <!-- ============ BUTTON MAP ============ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow"><span class="num">01</span> — The five buttons</p>
+      <h2>Everything runs from the watch buttons</h2>
+      <p>No touchscreen needed. Three buttons on the left, two on the right — here's what each one does from the main timer screen.</p>
+    </div>
+
+    <div class="btnmap">
+      <div class="btn-col left">
+        <div class="btn-card">
+          <span class="key">LIGHT <span class="dot"></span></span>
+          <p>Backlight, as on any Garmin watch. <b>PomoPulse doesn't use it.</b></p>
+        </div>
+        <div class="btn-card">
+          <span class="key">UP <span class="dot"></span></span>
+          <p><b>Short press</b> — open Focus Stats. <b>Long press</b> — open Settings.</p>
+        </div>
+        <div class="btn-card">
+          <span class="key">DOWN <span class="dot"></span></span>
+          <p>Skip the current break and jump to the next work session <i>(Pomodoro only)</i>.</p>
+        </div>
+      </div>
+
+      <div class="mid">
+        <svg class="watch-mini" viewBox="0 0 220 220" role="img" aria-label="Forerunner 255 button positions">
+          <circle cx="110" cy="110" r="100" fill="var(--surface)" stroke="var(--line)" stroke-width="2"/>
+          <circle cx="110" cy="110" r="86" fill="var(--paper)"/>
+          <text x="110" y="102" text-anchor="middle" fill="var(--muted)" font-family="IBM Plex Mono, monospace" font-size="11" letter-spacing="1">FR255</text>
+          <text x="110" y="126" text-anchor="middle" fill="var(--ink-soft)" font-family="IBM Plex Mono, monospace" font-size="12">5 buttons</text>
+          <!-- left buttons -->
+          <rect x="2" y="58"  width="8" height="22" rx="4" fill="var(--ink)" opacity="0.3"/>
+          <rect x="2" y="99"  width="8" height="22" rx="4" fill="var(--ink)" opacity="0.3"/>
+          <rect x="2" y="140" width="8" height="22" rx="4" fill="var(--ink)" opacity="0.3"/>
+          <!-- right buttons -->
+          <rect x="210" y="70"  width="8" height="26" rx="4" fill="var(--flow)"/>
+          <rect x="210" y="124" width="8" height="26" rx="4" fill="var(--ink)" opacity="0.3"/>
+        </svg>
+      </div>
+
+      <div class="btn-col right">
+        <div class="btn-card">
+          <span class="key"><span class="dot"></span> START / STOP</span>
+          <p><b>Start</b> a session, then <b>pause</b> and <b>resume</b> it. In Pomodoro, starts and pauses breaks.</p>
+        </div>
+        <div class="btn-card">
+          <span class="key"><span class="dot"></span> BACK / LAP</span>
+          <p>End &amp; save the session. During Pomodoro work it asks before abandoning. From idle, it exits the app.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MODES ============ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow"><span class="num">02</span> — Choose your rhythm</p>
+      <h2>Two ways to focus</h2>
+      <p>Switch anytime between sessions in Settings. Once a session starts, the mode is locked until it ends.</p>
+    </div>
+
+    <div class="modes">
+      <div class="mode flow">
+        <p class="tag">Freedom · Trust · Flow</p>
+        <h3>Flowtimer <span class="default-badge">Default</span></h3>
+        <p class="philosophy">“The session ends on your terms, not a timer's.”</p>
+        <ul>
+          <li><b>No set duration.</b> Start, focus, and stop when you're ready.</li>
+          <li><b>Pause &amp; resume</b> freely — only active time counts.</li>
+          <li>A gentle <b>nudge at 90 minutes</b>, and a <b>120-minute</b> ceiling.</li>
+          <li>Left paused for <b>15 minutes</b>? It auto-saves and ends.</li>
+        </ul>
+      </div>
+
+      <div class="mode pomo">
+        <p class="tag">Structure · Discipline · Ritual</p>
+        <h3>Pomodoro</h3>
+        <p class="philosophy">“Commit to the block, or abandon it.”</p>
+        <ul>
+          <li>A cycle is <b>4 work sessions</b> — 1 of 4 through 4 of 4.</li>
+          <li><b>No pausing during work.</b> It runs until the timer ends.</li>
+          <li>A <b>short break</b> after sessions 1–3, a <b>long break</b> after 4.</li>
+          <li>Breaks are optional — press <span class="mono">DOWN</span> to skip.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+      <span>Abandon a Pomodoro block after <b>10+ minutes</b> and PomoPulse offers to <b>save it as a flow session</b> instead — nothing focused is lost.</span>
+    </div>
+  </section>
+
+  <!-- ============ FLOW SCORE ============ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow"><span class="num">03</span> — The measurement</p>
+      <h2>What the Flow Score means</h2>
+      <p>A single number from 0 to 100, updated every second, built from two signals your Forerunner already reads.</p>
+    </div>
+
+    <div class="flow-lead">
+      <div class="signal hrv">
+        <div class="pct">75%</div>
+        <h3>Heart-rate variability</h3>
+        <p>Calm, evenly-spaced heartbeats signal a settled, absorbed mind. Scored against <b>your own baseline</b>, which PomoPulse learns over time.</p>
+      </div>
+      <div class="signal move">
+        <div class="pct">25%</div>
+        <h3>Stillness</h3>
+        <p>Deep focus is physically quiet. The accelerometer rewards steady stillness and reads fidgeting as a drop in attention.</p>
+      </div>
+    </div>
+
+    <div class="scale">
+      <h3>Three zones</h3>
+      <p>The first minute is a warm-up while sensors settle — it isn't judged. After that, your score falls into one of three zones:</p>
+
+      <div class="bar" role="img" aria-label="Flow zones: Building below 40, Focused 40 to 69, Flow 70 and above">
+        <div class="seg building"><span>BUILDING</span></div>
+        <div class="seg focused"><span>FOCUSED</span></div>
+        <div class="seg flow"><span>FLOW</span></div>
+      </div>
+      <div class="ticks mono">
+        <span>0</span><span>40</span><span>70 — 100</span>
+      </div>
+
+      <div class="zone-notes">
+        <div>
+          <div class="zh"><i class="b"></i>BUILDING · &lt; 40</div>
+          Settling in. Distracted, restless, or just getting started.
+        </div>
+        <div>
+          <div class="zh"><i class="f"></i>FOCUSED · 40–69</div>
+          Engaged and working steadily — the productive middle ground.
+        </div>
+        <div>
+          <div class="zh"><i class="w"></i>FLOW · 70+</div>
+          Deep, effortless absorption. The state worth protecting.
+        </div>
+      </div>
+
+      <div class="flow-facts">
+        <div class="fact">
+          <div class="k">Entered flow</div>
+          <div class="v"><b>60 seconds</b> held in the flow zone confirms it — this sets your <b>time-to-flow</b>.</div>
+        </div>
+        <div class="fact">
+          <div class="k">No wrist data?</div>
+          <div class="v">The session still records — the Flow Score simply shows as <b>N/A</b>.</div>
+        </div>
+        <div class="fact">
+          <div class="k">Recording floor</div>
+          <div class="v">Sessions under <b>10 minutes</b> of focus are discarded, so noise never clutters your stats.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FIRST SESSION ============ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow"><span class="num">04</span> — Your first session</p>
+      <h2>Start to summary in five presses</h2>
+      <p>This walkthrough uses the default Flowtimer mode. Wear the watch snugly a finger-width above the wrist bone so it reads your pulse cleanly.</p>
+    </div>
+
+    <div class="steps">
+      <div class="step">
+        <div class="n">1</div>
+        <div>
+          <h3>Open PomoPulse &amp; press <span class="press">START</span></h3>
+          <p>The timer begins counting up and the watch starts recording your heart rate and movement. Settle into your work.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n">2</div>
+        <div>
+          <h3>Watch the arc turn teal</h3>
+          <p>After the one-minute warm-up, your live Flow Score appears. As you sink into focus, the ring shifts from amber toward teal — you're entering the flow zone.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n">3</div>
+        <div>
+          <h3>Step away? Press <span class="press">START</span> to pause</h3>
+          <p>Paused time is invisible in your stats — only real focus counts. Press <span class="press">START</span> again to resume right where you left off.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n">4</div>
+        <div>
+          <h3>Finish with <span class="press">BACK</span></h3>
+          <p>When you're done, press BACK to end and save the session. As long as you focused for 10+ minutes, the summary slides up automatically.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="n">5</div>
+        <div>
+          <h3>Read your summary, then <span class="press">START</span> to dismiss</h3>
+          <p>See how deep you went. Press <span class="press">DOWN</span> to flip to the signal detail, or <span class="press">START</span> to return to the timer, ready for the next block.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SUMMARY + STATS ============ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow"><span class="num">05</span> — After the session</p>
+      <h2>The summary &amp; your history</h2>
+      <p>Every saved session tells you how it went in the moment — and builds a picture of your focus over time.</p>
+    </div>
+
+    <div class="two">
+      <div class="panel">
+        <h3>Session Summary</h3>
+        <p class="sub">Slides up when a session ends</p>
+        <!-- sparkline of a session's flow trend -->
+        <svg class="spark" viewBox="0 0 320 84" role="img" aria-label="Minute-by-minute flow trend rising into the flow zone">
+          <line x1="0" y1="30" x2="320" y2="30" stroke="var(--flow)" stroke-width="1" stroke-dasharray="3 4" opacity="0.5"/>
+          <text x="4" y="24" fill="var(--flow)" font-family="IBM Plex Mono, monospace" font-size="9">flow 70</text>
+          <polyline points="0,70 36,64 72,52 108,44 144,32 180,26 216,22 252,20 288,18 320,17"
+                    fill="none" stroke="url(#arc)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="320" cy="17" r="4" fill="var(--flow)"/>
+        </svg>
+        <ul>
+          <li><span class="lab">Hero</span><span>Your <b>average Flow Score</b>, colored by zone</span></li>
+          <li><span class="lab">Trend</span><span>A <b>minute-by-minute sparkline</b> of the whole session</span></li>
+          <li><span class="lab">Zones</span><span>A bar showing time spent <b>building / focused / in flow</b></span></li>
+          <li><span class="lab">Timing</span><span>“<b>First flow in N min</b>” and your longest flow streak</span></li>
+          <li><span class="lab">Signals</span><span>Press <span class="mono">DOWN</span> for HRV quality, stillness &amp; baseline status</span></li>
+        </ul>
+      </div>
+
+      <div class="panel">
+        <h3>Focus Stats</h3>
+        <p class="sub">Press UP · three pages</p>
+        <!-- weekly bar chart -->
+        <svg class="spark" viewBox="0 0 320 84" role="img" aria-label="Weekly focus chart with today highlighted">
+          <g font-family="IBM Plex Mono, monospace" font-size="9" fill="var(--muted)">
+            <rect x="6"   y="44" width="30" height="30" rx="3" fill="var(--line)"/>
+            <rect x="48"  y="30" width="30" height="44" rx="3" fill="var(--line)"/>
+            <rect x="90"  y="52" width="30" height="22" rx="3" fill="var(--line)"/>
+            <rect x="132" y="22" width="30" height="52" rx="3" fill="var(--line)"/>
+            <rect x="174" y="38" width="30" height="36" rx="3" fill="var(--line)"/>
+            <rect x="216" y="48" width="30" height="26" rx="3" fill="var(--line)"/>
+            <rect x="258" y="14" width="30" height="60" rx="3" fill="var(--flow)"/>
+            <text x="21"  y="82" text-anchor="middle">M</text>
+            <text x="63"  y="82" text-anchor="middle">T</text>
+            <text x="105" y="82" text-anchor="middle">W</text>
+            <text x="147" y="82" text-anchor="middle">T</text>
+            <text x="189" y="82" text-anchor="middle">F</text>
+            <text x="231" y="82" text-anchor="middle">S</text>
+            <text x="273" y="82" text-anchor="middle" fill="var(--flow)">S</text>
+          </g>
+        </svg>
+        <ul>
+          <li><span class="lab">Today</span><span>Total focus time, average flow, recent sessions</span></li>
+          <li><span class="lab">Week</span><span>A 7-day bar chart with today highlighted</span></li>
+          <li><span class="lab">Records</span><span>Day streak, best day, best session &amp; all-time focus</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SETTINGS ============ -->
+  <section>
+    <div class="sec-head">
+      <p class="eyebrow"><span class="num">06</span> — Settings &amp; privacy</p>
+      <h2>Tune it to you</h2>
+      <p>Long-press <span class="mono">UP</span> from the timer to open Settings.</p>
+    </div>
+
+    <div class="settings-grid">
+      <div class="setting">
+        <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+        <div><h3>Timer Mode</h3><p>Switch between Flowtimer and Pomodoro.</p></div>
+      </div>
+      <div class="setting">
+        <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+        <div><h3>Durations</h3><p>Set work (15–60m), short &amp; long break lengths — Pomodoro only.</p></div>
+      </div>
+      <div class="setting">
+        <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12h4l3-8 4 16 3-8h4"/></svg>
+        <div><h3>Live Flow</h3><p>Show or hide the on-screen flow-zone indicator during focus.</p></div>
+      </div>
+      <div class="setting">
+        <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/></svg>
+        <div><h3>Reset Baseline</h3><p>Forget the learned HRV calibration and start fresh.</p></div>
+      </div>
+      <div class="setting">
+        <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>
+        <div><h3>Clear History</h3><p>Erase all saved sessions from the watch (asks first).</p></div>
+      </div>
+
+      <div class="setting feature">
+        <svg class="ico" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2 4 6v6c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6l-8-4Z"/><path d="M9 12l2 2 4-4"/></svg>
+        <div>
+          <h3>Garmin Sync <span class="badge">Privacy</span></h3>
+          <p>Decides whether a finished session is written as a Garmin activity — the one thing that controls where your focus data goes. Your in-app stats are kept either way.</p>
+          <div class="privacy-flow">
+            <div class="pf on">
+              <div class="st"><span class="toggle"></span>ON — default</div>
+              <p>The session is saved as an activity and syncs out.</p>
+              <div class="chain">Watch → Garmin Connect → Strava</div>
+            </div>
+            <div class="pf off">
+              <div class="st"><span class="toggle"></span>OFF</div>
+              <p>Nothing leaves the watch. It stays in PomoPulse's own stats only.</p>
+              <div class="chain">Watch · private</div>
+            </div>
+          </div>
+          <div class="callout" style="margin-top:16px">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+            <span>Want sessions in Garmin Connect but <b>not</b> broadcast on Strava? That's a Strava-side choice — set your default activity visibility to <b>“Only You,”</b> since the Garmin→Strava bridge can't filter by type.</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p class="mono">PomoPulse · Garmin Connect IQ · Forerunner 255 (255 / 255M / 255S / 255SM)</p>
+    <p style="margin-top:6px">A focus companion that measures flow from heart-rate variability and stillness. Wear it snug, focus deep, and let the score tell the story.</p>
+  </footer>
+
+</div>
