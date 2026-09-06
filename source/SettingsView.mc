@@ -10,6 +10,14 @@ function isLiveFlowEnabled() as Boolean {
     return !(value instanceof Number && (value as Number) == 0);
 }
 
+//! Whether completed sessions are saved as a FIT activity, which syncs to
+//! Garmin Connect (and onward to Strava). Defaults to on. When off, sessions
+//! still record to the app's local stats but never leave the watch.
+function isGarminSyncEnabled() as Boolean {
+    var value = Application.Properties.getValue("syncToGarmin");
+    return !(value instanceof Boolean && (value as Boolean) == false);
+}
+
 //! Settings menu with mode selector and conditional Pomodoro settings
 class SettingsMenu extends WatchUi.Menu2 {
 
@@ -32,6 +40,8 @@ class SettingsMenu extends WatchUi.Menu2 {
 
         addItem(new WatchUi.MenuItem("Live Flow", isLiveFlowEnabled() ? "On" : "Off",
                                      :liveFlow, null));
+        addItem(new WatchUi.MenuItem("Garmin Sync", isGarminSyncEnabled() ? "On" : "Off",
+                                     :garminSync, null));
         addItem(new WatchUi.MenuItem("Reset Baseline", "HRV calibration", :resetBaseline, null));
         addItem(new WatchUi.MenuItem("Clear History", null, :clearHistory, null));
     }
@@ -63,6 +73,11 @@ class SettingsMenuDelegate extends WatchUi.Menu2InputDelegate {
             var enabled = !isLiveFlowEnabled();
             Application.Properties.setValue("liveFlow", enabled ? 1 : 0);
             item.setSubLabel(enabled ? "On" : "Off");
+            WatchUi.requestUpdate();
+        } else if (id == :garminSync) {
+            var syncOn = !isGarminSyncEnabled();
+            Application.Properties.setValue("syncToGarmin", syncOn);
+            item.setSubLabel(syncOn ? "On" : "Off");
             WatchUi.requestUpdate();
         } else if (id == :resetBaseline) {
             showResetBaselineConfirmation();

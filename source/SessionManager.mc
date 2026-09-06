@@ -164,7 +164,14 @@ class SessionManager {
                     avgFlowScore = _flowScoreSum / _flowScoreSamples;
                 }
 
-                session.save();
+                // Only write the FIT activity (which syncs to Garmin Connect, and
+                // onward to Strava) when the user has sync enabled. Local history
+                // below is kept either way, so the app's own stats are unaffected.
+                if (isGarminSyncEnabled()) {
+                    session.save();
+                } else {
+                    session.discard();
+                }
 
                 // Compute session label
                 var label;
