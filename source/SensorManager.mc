@@ -120,11 +120,12 @@ class SensorManager {
     //! HRV is only considered valid once enough clean beat intervals have
     //! accumulated — otherwise dropouts would be scored as low HRV.
     private function updateFlowCalculator() as Void {
-        if (_flowCalculator == null) {
+        var fc = _flowCalculator;
+        if (fc == null) {
             return;
         }
         var hrvValid = _hrvAnalyzer.getIntervalCount() >= 10;
-        _flowCalculator.updateSensorData(
+        fc.updateSensorData(
             _hrvAnalyzer.getRmssd(),
             _accelMagnitude,
             hrvValid
