@@ -8,7 +8,7 @@ class PomoPulseApp extends Application.AppBase {
 
     private var _timerController as TimerController?;
     private var _sensorManager as SensorManager?;
-    private var _flowCalculator as FlowScoreCalculator?;
+    private var _engine as DeepWorkEngine?;
     private var _sessionManager as SessionManager?;
     private var _historyManager as HistoryManager?;
     private var _delegate as PomoPulseDelegate?;
@@ -20,8 +20,8 @@ class PomoPulseApp extends Application.AppBase {
     function onStart(state as Dictionary?) as Void {
         _historyManager = new HistoryManager();
         _timerController = new TimerController();
-        _flowCalculator = new FlowScoreCalculator();
-        _sensorManager = new SensorManager(_flowCalculator);
+        _engine = new DeepWorkEngine();
+        _sensorManager = new SensorManager(_engine);
         _sessionManager = new SessionManager(_historyManager);
     }
 
@@ -29,14 +29,20 @@ class PomoPulseApp extends Application.AppBase {
         if (_sensorManager != null) {
             _sensorManager.stopSensors();
         }
-        if (_sessionManager != null) {
-            _sessionManager.stopSession();
+        var sm = _sessionManager;
+        if (sm != null) {
+            // App closed mid-session: keep the deep-work metrics with it
+            var engine = _engine;
+            if (engine != null && sm.isRecording()) {
+                sm.setSessionExtras(engine.getSessionRecord());
+            }
+            sm.stopSession();
         }
     }
 
     function getInitialView() as [Views] or [Views, InputDelegates] {
-        var view = new PomoPulseView(_timerController, _flowCalculator, _sensorManager, _sessionManager);
-        var delegate = new PomoPulseDelegate(_timerController, _sensorManager, _sessionManager, _flowCalculator, view);
+        var view = new PomoPulseView(_timerController, _engine, _sensorManager, _sessionManager);
+        var delegate = new PomoPulseDelegate(_timerController, _sensorManager, _sessionManager, _engine, view);
         _delegate = delegate;
 
         // Wire up timer callbacks
@@ -52,41 +58,62 @@ class PomoPulseApp extends Application.AppBase {
     }
 
     //! Per-second recording during active focus. Lives at app level so
-    //! scores keep flowing even while stats/settings views are open.
+    //! depth keeps being recorded even while stats/settings views are open.
     function onRecordTick() as Void {
-        var fc = _flowCalculator;
+        var engine = _engine;
         var sm = _sessionManager;
-        if (fc != null && sm != null) {
-            sm.recordFlowScore(fc.getFlowScore());
+        if (engine != null && sm != null) {
+            sm.recordDepth(engine.getDepth());
         }
     }
 
     //! Pomodoro work phase completed naturally
     function onWorkPhaseComplete() as Void {
-        var duration = 0;
+        finishSession(MODE_POMODORO, "Pomodoro", false);
+    }
+
+    //! End the current focus session: save it (if it clears the 10-minute
+    //! floor), learn baselines, then ask for a self-rating and show the
+    //! summary. Single path for every way a session can end.
+    function finishSession(mode as Number, label as String, converted as Boolean) as Void {
         var sm = _sessionManager;
-        var fc = _flowCalculator;
+        var engine = _engine;
+        var duration = 0;
+        var saved = false;
+        var timestamp = 0;
 
         if (sm != null) {
             duration = sm.getSessionDuration();
-            if (fc != null) {
-                sm.setFlowMetrics(fc.getTimeToFlow(), fc.getLongestFlowStreak());
+            if (engine != null) {
+                sm.setSessionExtras(engine.getSessionRecord());
             }
-            sm.stopSession();
+            saved = sm.stopSession();
+            timestamp = sm.getLastSavedTimestamp();
         }
-        if (_sensorManager != null) {
-            _sensorManager.stopSensors();
-        }
-
-        var stats = collectSessionStats(fc, duration, MODE_POMODORO, "Pomodoro", false);
-        if (fc != null) {
-            fc.finalizeSession();
-            fc.reset();
+        var sensors = _sensorManager;
+        if (sensors != null) {
+            sensors.stopSensors();
         }
 
+        var stats = collectSessionStats(engine, duration, mode, label, converted);
+        if (engine != null) {
+            if (saved) {
+                engine.finalizeSession();
+            }
+            engine.reset();
+        }
+
+        if (!saved) {
+            return;
+        }
+
+        // Summary first, rating on top: you rate the session *before* seeing
+        // the watch's verdict, so its number can't anchor your judgement
         var summaryView = new SessionSummaryView(stats);
-        var summaryDelegate = new SessionSummaryDelegate(summaryView);
-        WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
+        WatchUi.pushView(summaryView, new SessionSummaryDelegate(summaryView), WatchUi.SLIDE_UP);
+        WatchUi.pushView(new SelfRatingMenu(),
+                         new SelfRatingDelegate(stats, timestamp),
+                         WatchUi.SLIDE_IMMEDIATE);
     }
 
     //! Flowtimer auto-stop (120-min ceiling or 15-min pause timeout)
@@ -103,27 +130,22 @@ class PomoPulseApp extends Application.AppBase {
 
         var completedCycles = hm.getTodayCompletedCycles();
 
-        // Get cycle-specific stats from the last 4 Pomodoro sessions
+        // Cycle stats from the last 4 Pomodoro sessions (newest first)
         var pomoSessions = hm.getTodaySessionsByMode(MODE_POMODORO);
-        var cycleFocusTime = 0;
-        var cycleFlowSum = 0;
-        var cycleSamples = 0;
         var count = pomoSessions.size() < 4 ? pomoSessions.size() : 4;
+        var cycleSessions = [] as Array<Dictionary>;
+        var cycleFocusTime = 0;
+        var cycleDeepTime = 0;
         for (var i = 0; i < count; i++) {
             var session = pomoSessions[i];
-            if (session.hasKey("duration")) {
-                cycleFocusTime += (session["duration"] as Number);
-            }
-            if (session.hasKey("avgFlowScore") && session.hasKey("samples")) {
-                cycleFlowSum += (session["avgFlowScore"] as Number) * (session["samples"] as Number);
-                cycleSamples += (session["samples"] as Number);
-            }
+            cycleSessions.add(session);
+            cycleFocusTime += hm.sessionNum(session, "duration", 0);
+            cycleDeepTime += hm.sessionNum(session, "deepSec", 0);
         }
-        var cycleAvgFlow = cycleSamples > 0 ? cycleFlowSum / cycleSamples : 0;
-        var hasBiometrics = cycleSamples > 0;
+        var cycleQuality = hm.avgQuality(cycleSessions);
 
-        var summaryView = new CycleSummaryView(cycleFocusTime, cycleAvgFlow,
-                                                hasBiometrics, completedCycles);
+        var summaryView = new CycleSummaryView(cycleFocusTime, cycleDeepTime,
+                                                cycleQuality, completedCycles);
         var summaryDelegate = new CycleSummaryDelegate();
         WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
     }
@@ -136,8 +158,8 @@ class PomoPulseApp extends Application.AppBase {
         return _sensorManager;
     }
 
-    function getFlowCalculator() as FlowScoreCalculator? {
-        return _flowCalculator;
+    function getEngine() as DeepWorkEngine? {
+        return _engine;
     }
 
     function getSessionManager() as SessionManager? {

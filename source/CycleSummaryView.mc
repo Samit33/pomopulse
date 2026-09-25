@@ -7,19 +7,19 @@ import Toybox.WatchUi;
 class CycleSummaryView extends WatchUi.View {
 
     private var _cycleFocusTime as Number;
-    private var _avgFlowScore as Number;
-    private var _hasBiometrics as Boolean;
+    private var _cycleDeepTime as Number;
+    private var _quality as Number;          // -1 = no depth data
     private var _completedCycles as Number;
 
     private var _centerX as Number = 0;
     private var _centerY as Number = 0;
 
-    function initialize(cycleFocusTime as Number, avgFlowScore as Number,
-                       hasBiometrics as Boolean, completedCycles as Number) {
+    function initialize(cycleFocusTime as Number, cycleDeepTime as Number,
+                       quality as Number, completedCycles as Number) {
         View.initialize();
         _cycleFocusTime = cycleFocusTime;
-        _avgFlowScore = avgFlowScore;
-        _hasBiometrics = hasBiometrics;
+        _cycleDeepTime = cycleDeepTime;
+        _quality = quality;
         _completedCycles = completedCycles;
     }
 
@@ -37,30 +37,31 @@ class CycleSummaryView extends WatchUi.View {
         dc.drawText(_centerX, 30, Graphics.FONT_SMALL,
                     "Cycle Complete", Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Total cycle focus time
-        var minutes = _cycleFocusTime / 60;
-        dc.setColor(0xFFFFFF, Graphics.COLOR_TRANSPARENT);
+        // Deep minutes across the cycle (hero)
+        var deepMinutes = _cycleDeepTime / 60;
+        dc.setColor(0x44DDAA, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, _centerY - 30, Graphics.FONT_NUMBER_MILD,
-                    minutes.format("%d"), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
+                    deepMinutes.format("%d"), Graphics.TEXT_JUSTIFY_CENTER | Graphics.TEXT_JUSTIFY_VCENTER);
 
         dc.setColor(0xAAAAAA, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, _centerY + 5, Graphics.FONT_XTINY,
-                    "min focus (4 sessions)", Graphics.TEXT_JUSTIFY_CENTER);
+                    "deep min of " + (_cycleFocusTime / 60).format("%d") + " focused",
+                    Graphics.TEXT_JUSTIFY_CENTER);
 
         // Divider
         dc.setColor(0x444444, Graphics.COLOR_TRANSPARENT);
         dc.drawLine(_centerX - 60, _centerY + 30, _centerX + 60, _centerY + 30);
 
-        // Flow score
-        var flowText;
-        if (_hasBiometrics) {
-            flowText = "Avg Flow: " + _avgFlowScore.format("%d");
+        // Cycle quality
+        var qualityText;
+        if (_quality >= 0) {
+            qualityText = "Quality " + _quality.format("%d");
         } else {
-            flowText = "Flow: N/A";
+            qualityText = "Quality: N/A";
         }
         dc.setColor(0xAAAAAA, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, _centerY + 40, Graphics.FONT_TINY,
-                    flowText, Graphics.TEXT_JUSTIFY_CENTER);
+                    qualityText, Graphics.TEXT_JUSTIFY_CENTER);
 
         // Cycles today
         dc.drawText(_centerX, _centerY + 65, Graphics.FONT_XTINY,

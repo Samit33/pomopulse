@@ -108,7 +108,7 @@ class TimerController {
     }
 
     //! App-level per-second callback during active work — used to record
-    //! flow scores even while other views (stats, settings) are shown.
+    //! depth even while other views (stats, settings) are shown.
     function setRecordCallback(callback as Method?) as Void {
         _recordCallback = callback;
     }
@@ -378,6 +378,16 @@ class TimerController {
         if (Attention has :vibrate) {
             var vibeData = [
                 new Attention.VibeProfile(50, 400)
+            ] as Array<Attention.VibeProfile>;
+            Attention.vibrate(vibeData);
+        }
+    }
+
+    //! Barely-there tick acknowledging a logged distraction
+    function vibrateTick() as Void {
+        if (Attention has :vibrate) {
+            var vibeData = [
+                new Attention.VibeProfile(40, 80)
             ] as Array<Attention.VibeProfile>;
             Attention.vibrate(vibeData);
         }

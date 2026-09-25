@@ -1,26 +1,28 @@
 # PomoPulse
 
-A Garmin Connect IQ application for the Forerunner 255 that combines Pomodoro timing with multi-sensor biofeedback to calculate a **Flow Score** (0–100) representing focus quality in real time.
+A Garmin Connect IQ application for the Forerunner 255 that measures the **quality of deep work**: how long you stayed unbroken, how often you were pulled away, and how engaged you were, rolled up into deep minutes and a per-session **Deep Work Quality** score (0–100).
 
 ## Features
 
-- **Pomodoro Timer** — 25/5/15 min work/break/long-break cycles, fully configurable
-- **Flow Score** — live composite score from heart rate variability, movement, stress, and SpO2
-- **FIT Recording** — per-second Flow Score saved to Garmin Connect activity files
-- **Session History** — up to 50 sessions stored locally with daily and all-time stats
-- **Round display UI** — optimized for the 260×260 circular screen
+- **Flowtimer and Pomodoro modes**: open-ended sessions or fixed work/break cycles
+- **Depth tracking**: depth builds with unbroken time and drops when you're interrupted (phone pickups, getting up, or distractions you log with DOWN)
+- **Deep minutes and daily goal**: the number that matters, measured against a daily target (default 2 h)
+- **Self-rating**: rate each session before you see the watch's score; the app tracks how often you and the watch agree
+- **Insights**: your peak hours, best session length, and break-ins per hour
+- **FIT recording**: per-second Depth, plus session Quality / Deep Minutes / Interruptions in Garmin Connect
+- **Round display UI**: optimized for the 260×260 circular screen
 
-## Flow Score Algorithm
+## How depth is measured
 
-Weighted composite (0–100):
+```
+depth      = continuity ramp (0→100 over 8 unbroken min) × engagement
+engagement = 60% settledness (no gross motion; typing is fine)
+           + 40% arousal (inverted-U around your personal HR/HRV baseline)
+quality    = 55% deep-time ratio + 20% longest unbroken block + 25% engagement
+```
 
-| Sensor | Weight | Logic |
-|--------|--------|-------|
-| HRV (RMSSD) | 35% | Higher parasympathetic activity = better cognitive performance |
-| HR Stability | 20% | Low heart rate variance = sustained arousal |
-| Movement | 20% | Physical stillness indicates deep focus |
-| Stress (inverted) | 20% | Lower Garmin stress score = higher Flow Score |
-| SpO2 | 5% | Penalizes only if oxygen saturation is compromised |
+See [docs/deep-work-model.md](docs/deep-work-model.md) for the reasoning, the
+limits, and how to tune it with `python3 tools/depth_model.py`.
 
 ## Requirements
 
@@ -58,20 +60,20 @@ cp bin/PomoPulse.prg /media/$USER/GARMIN/GARMIN/APPS/
 | BACK/LAP | Reset timer or exit |
 | UP (long press) | Open settings menu |
 | UP (short press) | View session stats |
-| DOWN | Skip current phase (work → break or break → work) |
+| DOWN | During focus: log a distraction · During a break: skip it |
 
 ## Project Structure
 
 ```
 source/
 ├── PomoPulseApp.mc          # App entry point
-├── PomoPulseView.mc         # Main UI (timer, flow score gauge)
+├── PomoPulseView.mc         # Main UI (timer, live depth, daily goal)
 ├── PomoPulseDelegate.mc     # Button input handling
 ├── TimerController.mc       # Pomodoro state machine
-├── FlowScoreCalculator.mc   # Weighted Flow Score algorithm
-├── SensorManager.mc         # HR, HRV, SpO2, accelerometer, stress
+├── DeepWorkEngine.mc        # Depth / interruptions / quality engine
+├── SensorManager.mc         # 25 Hz motion, steps, HR, beat intervals
 ├── HrvAnalyzer.mc           # RMSSD calculation from beat intervals
-├── SessionManager.mc        # FIT recording with custom FlowScore field
+├── SessionManager.mc        # FIT recording (Depth + session fields)
 ├── HistoryManager.mc        # Session persistence via Storage API
 ├── StatsView.mc             # Statistics and session history UI
 └── SettingsView.mc          # Settings menu
@@ -81,7 +83,9 @@ source/
 
 Configurable via long-press UP on the watch:
 
-- Work duration (10–60 min, default 25)
-- Short break duration (1–30 min, default 5)
-- Long break duration (5–60 min, default 15)
-- Auto-start break after work session
+- Timer mode (Flowtimer / Pomodoro)
+- Work / short break / long break durations (Pomodoro)
+- Daily deep-work goal (60–240 min, default 120)
+- Live depth indicator on/off
+- Garmin Sync on/off
+- Reset HR/HRV baseline, clear history

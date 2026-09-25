@@ -10,8 +10,11 @@ the active mode. Mode is chosen in Settings and locked once a session starts.
 
 ## 1. Main Timer View (PomoPulseView)
 
-The default screen. Shows a circular progress arc, timer, HR readout, and a
-live flow-zone indicator (when enabled).
+The default screen. Shows a circular progress arc and the timer. During focus
+it adds a live depth-zone indicator (shallow / focused / deep dots) and
+"Nm unbroken", which reads "Interrupted" while a disruption is detected. Both
+can be turned off with Live Depth. Idle screens show deep minutes today against
+the daily goal, with a small progress bar.
 
 ### Timer states
 
@@ -26,7 +29,7 @@ live flow-zone indicator (when enabled).
 | **BACK/LAP** | Exit app | Stop & save (see recording floor) | Stop & save |
 | **UP (short)** | Open Focus Stats | Open Focus Stats | Open Focus Stats |
 | **UP (long)** | Open Settings | Open Settings | Open Settings |
-| **DOWN** | _(no action)_ | _(no action)_ | _(no action)_ |
+| **DOWN** | _(no action)_ | Log a distraction (tick vibe) | _(no action)_ |
 
 ### Button actions — Pomodoro
 
@@ -36,12 +39,13 @@ live flow-zone indicator (when enabled).
 | **BACK/LAP** | Exit app | "Abandon session?" confirmation | Skip break → next work | Skip break → next work |
 | **UP (short)** | Open Focus Stats | Open Focus Stats | Open Focus Stats | Open Focus Stats |
 | **UP (long)** | Open Settings | Open Settings | Open Settings | Open Settings |
-| **DOWN** | _(no action)_ | _(no action)_ | Skip break → next work | Skip break → next work |
+| **DOWN** | _(no action)_ | Log a distraction (tick vibe) | Skip break → next work | Skip break → next work |
 
 ### Recording floor (both modes)
 
 - Sessions with **≥ 10 minutes** of active focus are saved (FIT activity if
-  Garmin Sync is on, plus local history) and the Session Summary is shown.
+  Garmin Sync is on, plus local history). You're asked "How deep was it?", then
+  the Session Summary is shown.
 - Sessions **under 10 minutes** are discarded silently (a brief vibrate on a
   manual Flowtimer stop); nothing is recorded anywhere.
 
@@ -66,17 +70,21 @@ live flow-zone indicator (when enabled).
 
 ## 2. Focus Stats View (StatsView)
 
-Opened via **UP (short press)** from the main view. Three pages navigated with
+Opened via **UP (short press)** from the main view. Four pages navigated with
 UP/DOWN; page dots at the bottom show position.
 
 ### Pages
 
-- **Page 1 — Today**: total focus time (large), average flow score, Flow/Pomo
-  mode breakdown, and the most recent sessions.
-- **Page 2 — Week**: last-7-days focus bar chart (today highlighted), weekly
-  total, day-of-week letters.
-- **Page 3 — Records**: current day streak, best day, best session flow score,
-  total sessions, all-time focus.
+- **Page 1 — Today**: deep minutes vs daily goal (large), total focus, average
+  quality and break-ins, and recent sessions (mode, start time, quality,
+  deep/total minutes).
+- **Page 2 — Week**: last-7-days stacked bars (full bar = focus time, bright
+  part = deep time), weekly deep total.
+- **Page 3 — Insights**: peak 2-hour window, best session length, break-ins
+  per focused hour (7 days), and watch-vs-you rating agreement. Shows "--"
+  until there's enough data.
+- **Page 4 — Records**: current day streak, best deep day, best quality,
+  longest unbroken block, all-time deep time.
 
 | Button | Action |
 |--------|--------|
@@ -86,37 +94,40 @@ UP/DOWN; page dots at the bottom show position.
 
 ---
 
-## 3. Session Summary View (SessionSummaryView)
+## 3. Self-Rating + Session Summary
 
-Shown automatically after a saved session (natural completion, manual stop, or
-converted abandon — all ≥ 10 min). Displayed as an overlay on the main view.
+After a saved session (natural completion, manual stop, auto-stop or converted
+abandon, all ≥ 10 min), a **"How deep was it?"** menu appears first: Deep /
+Solid / Shallow. BACK skips it. The rating is asked *before* the score is shown
+so the watch's number can't anchor your answer.
 
-**Page 1 — Flow overview:**
-- Title: "Session Done" / "Pomodoro Done"
-- Average flow score as hero number (coloured by zone: teal ≥ 70, blue ≥ 40)
-- Duration + peak score line
-- Minute-by-minute flow sparkline with the flow-threshold guide line
-- Stacked zone bar (time in flow / focused / building)
-- "First flow in N min" or "Flow zone not reached"
-- Sessions with no HRV data show duration as the hero plus a watch-fit hint
+**Summary page 1 — Overview:**
+- Deep Work Quality as the hero number (teal ≥ 70, blue ≥ 40)
+- "N deep min of M"
+- Minute-by-minute depth sparkline with the deep threshold line
+- Stacked zone bar (deep / focused / shallow)
+- Break-ins and best unbroken block
+- "Watch agrees: Deep" or "You Solid, watch Deep" when rated
 
-**Page 2 — Signals (via DOWN/UP):**
-- HRV Quality and Stillness with Low/Med/High ratings
-- Best (longest) flow streak, time in flow %
-- Baseline calibration status
+**Summary page 2 — Breakdown (via DOWN/UP):**
+- Deep time %, break-ins (and how many you tapped), longest block, time to
+  deep, engagement (Low/Med/High, or Calibrating)
+- One coaching tip picked from the session (e.g. "Put phone out of reach",
+  "Try a startup ritual")
 
 | Button | Action |
 |--------|--------|
 | **START/STOP** | Dismiss, return to main view |
 | **BACK/LAP** | Dismiss, return to main view |
-| **UP / DOWN** | Toggle overview / signals page |
+| **UP / DOWN** | Toggle overview / breakdown page |
 
 ---
 
 ## 4. Cycle Summary View (CycleSummaryView)
 
-Shown after a full Pomodoro cycle (4 work sessions). Displays cycle focus time,
-average flow across the cycle, and the number of cycles completed today.
+Shown after a full Pomodoro cycle (4 work sessions). Displays deep minutes
+across the cycle, total focus minutes, cycle quality, and the number of cycles
+completed today.
 
 | Button | Action |
 |--------|--------|
@@ -134,9 +145,10 @@ Opened via **long-press UP** from the main view. Standard Garmin Menu2.
 | Work Duration | Duration picker (15–60 min) — Pomodoro mode only |
 | Short Break | Duration picker (3–15 min) — Pomodoro mode only |
 | Long Break | Duration picker (10–30 min) — Pomodoro mode only |
-| Live Flow | Toggle the on-screen live flow-zone indicator (On/Off) |
+| Deep Goal | Daily deep-work goal picker (60–240 min, default 120) |
+| Live Depth | Toggle the live depth dots and unbroken counter (On/Off) |
 | **Garmin Sync** | Toggle whether saved sessions are written as a FIT activity (On/Off) |
-| Reset Baseline | "Reset HRV baseline?" confirmation — forgets learned HRV calibration |
+| Reset Baseline | "Reset HR/HRV baseline?" confirmation — forgets learned HR/HRV calibration |
 | Clear History | "Clear all history?" confirmation |
 
 ### Garmin Sync (privacy)
