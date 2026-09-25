@@ -7,6 +7,7 @@
     <string id="ReadyLabel">Ready</string>
     <string id="FlowScoreLabel">Flow</string>
     <string id="DepthLabel">Depth</string>
+    <string id="DepthChartTitle">Focus Depth</string>
     <string id="DepthUnit">depth</string>
     <string id="QualityLabel">Deep Work Quality</string>
     <string id="QualityUnit">/100</string>

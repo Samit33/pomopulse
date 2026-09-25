@@ -228,7 +228,13 @@ class HistoryManager {
     }
 
     function hasQuality(session as Dictionary) as Boolean {
-        return session.hasKey("quality") && session["quality"] instanceof Number;
+        if (!session.hasKey("quality")) {
+            return false;
+        }
+        if (session["quality"] instanceof Number) {
+            return true;
+        }
+        return false;
     }
 
     //! Deep seconds for the day N days ago (0 = today), local time
