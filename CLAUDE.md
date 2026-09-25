@@ -4,7 +4,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-PomoPulse - A Garmin Connect IQ application for Forerunner 255 that combines Pomodoro timing with multi-sensor biofeedback to calculate a "Flow Score" (0-100) representing focus quality.
+PomoPulse - A Garmin Connect IQ application for Forerunner 255 that measures the
+quality of deep work: it combines Flowtimer/Pomodoro timing with wrist sensing to
+track depth (0-100, live), deep minutes, interruptions, and a per-session Deep Work
+Quality score (0-100). See `docs/deep-work-model.md` for the model and rationale.
 
 ## Architecture
 
@@ -15,36 +18,50 @@ PomoPulse - A Garmin Connect IQ application for Forerunner 255 that combines Pom
 ## Key Files
 
 - `source/PomoPulseApp.mc` - Main application entry point
-- `source/PomoPulseView.mc` - Main timer UI (work/break/idle screens, flow score display)
+- `source/PomoPulseView.mc` - Main timer UI (work/break/idle screens, live depth dots + unbroken counter, daily goal teaser)
 - `source/PomoPulseDelegate.mc` - Button input handler for main view
 - `source/TimerController.mc` - Work/break state machine with Pomodoro logic
-- `source/FlowScoreCalculator.mc` - Flow engine: personal-baseline HRV + movement score, zones, streaks, trend buffer
-- `source/SensorManager.mc` - Real-time sensor data collection (HR, accelerometer, beat intervals)
-- `source/HrvAnalyzer.mc` - RMSSD calculation from beat intervals
-- `source/SessionManager.mc` - FIT recording with custom FlowScore field
-- `source/HistoryManager.mc` - Session persistence + daily/weekly/streak analytics (Storage API)
-- `source/StatsView.mc` - Stats screen (UP button): 3 pages — Today / Week chart / Records
-- `source/SessionSummaryView.mc` - Post-session summary: flow hero, sparkline, zone bar; DOWN toggles signal detail
-- `source/SettingsView.mc` - Settings menu (mode, durations, live flow toggle, reset baseline, clear history)
+- `source/DeepWorkEngine.mc` - Depth engine: continuity ramp, interruption detection (motion bursts, steps, self-logged), engagement (settledness + inverted-U arousal vs personal HR/HRV baseline), quality score, trend buffer
+- `source/SensorManager.mc` - Sensor collection: 25 Hz accelerometer → per-second motion intensity, steps (ActivityMonitor), HR, beat intervals
+- `source/HrvAnalyzer.mc` - RMSSD from beat intervals (ectopic filter with lock-out escape, freshness check)
+- `source/SessionManager.mc` - FIT recording: per-second Depth + session Quality / Deep Minutes / Interruptions fields
+- `source/HistoryManager.mc` - Session persistence + deep-time / quality / insight analytics (Storage API)
+- `source/StatsView.mc` - Stats screen (UP button): 4 pages — Today / Week / Insights / Records
+- `source/SessionSummaryView.mc` - Post-session summary (quality hero, sparkline, break-ins, you-vs-watch) + breakdown/coaching page; also `SelfRatingMenu`
+- `source/CycleSummaryView.mc` - Pomodoro cycle summary (deep minutes, cycle quality)
+- `source/SettingsView.mc` - Settings menu (mode, durations, deep goal, live depth toggle, Garmin sync, reset baseline, clear history)
+- `tools/depth_model.py` - Desktop Python mirror of the engine for tuning thresholds against synthetic scenarios (keep in sync with DeepWorkEngine.mc)
 
-## Flow Score Algorithm
+## Deep Work Model
 
-Weighted composite (0-100), EMA-smoothed:
-- HRV (RMSSD): 75% - Scored against a personal baseline learned across sessions
-  (persisted in Storage under `hrvBaseline`; falls back to an absolute 20-100ms
-  band until calibrated). HRV dropouts hold the last score instead of zeroing.
-- Movement: 25% - Physical stillness indicates deep focus
+Depth is momentum: it builds with unbroken time and is knocked down by
+interruptions. Physiology only modulates it.
 
-Session engine (FlowScoreCalculator):
-- First 60s is warm-up: score computed but not judged (no zone/peak/min/streak tracking)
-- Zones: Flow (>=70), Focused (40-69), Building (<40)
-- "Entered flow" = 60 consecutive seconds in the flow zone (drives time-to-flow);
-  longest flow streak also tracked
-- Per-minute averaged trend buffer feeds the post-session sparkline
+- **Depth (0-100, per second)** = continuity ramp (0→100 over 8 unbroken min)
+  × engagement / 100. Zones: Deep (>=70), Focused (40-69), Shallow (<40).
+- **Interruptions**: motion burst (>=10 gross-motion seconds in 30 s) halves the
+  ramp, escalating to a reset after 45 s; walking (>=15 steps in ~60 s) resets;
+  DOWN during focus logs a distraction (halves). Resuming from a pause breaks the
+  block (halve if <2 min, else reset) but isn't counted as an interruption.
+- **Engagement** = 60% settledness (gross motion = 0; typing is fine; stillness
+  + under-arousal = "drifting" 50) + 40% arousal, an inverted-U around the
+  personal working baseline (RMSSD 70-120% or HR -3..+10 bpm = 100). Baselines
+  (`hrvBaseline`, `hrBaseline` in Storage) are learned from settled seconds of
+  saved sessions; uncalibrated arousal is a neutral 75.
+- **Session Quality** = 55% deep-time ratio (80% deep → 100) + 20% continuity
+  (longest block vs min(session, 25 min)) + 25% average engagement.
+- After each saved session the user self-rates (Deep / Solid / Shallow) *before*
+  seeing the score; Stats > Insights shows watch-vs-you agreement.
+- History records add `quality`, `deepSec`, `intr`, `longest`, `ttd`, `eng`,
+  `rating`. `avgFlowScore` now holds average depth. Sessions without `quality`
+  are legacy (pre-engine) and are excluded from depth stats.
+- Constants are first guesses; tune with `python3 tools/depth_model.py` and keep
+  the model in sync.
 
-Flow scores are recorded at app level via TimerController's record callback, so
-recording continues while stats/settings views are open. Duration properties
-store minutes (matching settings.xml); legacy seconds values are migrated on load.
+Depth is recorded at app level via TimerController's record callback, so
+recording continues while stats/settings views are open. Every way a session
+ends goes through `PomoPulseApp.finishSession()`. Duration properties store
+minutes (matching settings.xml); legacy seconds values are migrated on load.
 
 ## Environment Setup
 
@@ -112,7 +129,7 @@ Prerequisites:
 - **BACK/LAP**: Reset timer or exit
 - **UP (long)**: Open settings menu
 - **UP (short)**: View stats
-- **DOWN**: Skip current phase (work→break or break→work)
+- **DOWN**: During focus: log a distraction ("I got pulled away"). During a Pomodoro break: skip the break
 
 ## UI Testing
 

@@ -6,6 +6,14 @@
     <string id="PausedLabel">Paused</string>
     <string id="ReadyLabel">Ready</string>
     <string id="FlowScoreLabel">Flow</string>
+    <string id="DepthLabel">Depth</string>
+    <string id="DepthUnit">depth</string>
+    <string id="QualityLabel">Deep Work Quality</string>
+    <string id="QualityUnit">/100</string>
+    <string id="DeepMinutesLabel">Deep Minutes</string>
+    <string id="MinutesUnit">min</string>
+    <string id="InterruptionsLabel">Interruptions</string>
+    <string id="CountUnit">times</string>
     <string id="HeartRateLabel">HR</string>
     <string id="FlowScoreUnit">pts</string>
 

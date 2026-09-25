@@ -5,16 +5,18 @@ import Toybox.Time;
 import Toybox.Time.Gregorian;
 import Toybox.WatchUi;
 
-//! Stats: three pages navigated with UP/DOWN.
-//! Page 0: Today — totals, mode breakdown, session list
-//! Page 1: Week — 7-day focus bar chart
-//! Page 2: Records — streak and personal bests
+//! Stats: four pages navigated with UP/DOWN.
+//! Page 0: Today — deep minutes vs goal, quality, session list
+//! Page 1: Week — 7-day deep-vs-focus bar chart
+//! Page 2: Insights — peak hours, sweet-spot length, break-in rate,
+//!         how well the watch agrees with your own ratings
+//! Page 3: Records — streak and personal bests
 class StatsView extends WatchUi.View {
 
     private var _historyManager as HistoryManager?;
     private var _page as Number = 0;
 
-    private const PAGE_COUNT = 3;
+    private const PAGE_COUNT = 4;
 
     private var _screenWidth  as Number = 0;
     private var _screenHeight as Number = 0;
@@ -71,6 +73,8 @@ class StatsView extends WatchUi.View {
             drawTodayPage(dc);
         } else if (_page == 1) {
             drawWeekPage(dc);
+        } else if (_page == 2) {
+            drawInsightsPage(dc);
         } else {
             drawRecordsPage(dc);
         }
@@ -87,7 +91,7 @@ class StatsView extends WatchUi.View {
     private function drawPageDots(dc as Dc) as Void {
         var y = _screenHeight - 14;
         var spacing = 12;
-        var startX = _centerX - spacing;
+        var startX = _centerX - (((PAGE_COUNT - 1) * spacing) / 2);
         for (var i = 0; i < PAGE_COUNT; i++) {
             dc.setColor(i == _page ? COLOR_TEXT_DIM : COLOR_INACTIVE,
                         Graphics.COLOR_TRANSPARENT);
@@ -105,49 +109,37 @@ class StatsView extends WatchUi.View {
         dc.drawText(_centerX, 20, Graphics.FONT_SMALL,
                     "Today", Graphics.TEXT_JUSTIFY_CENTER);
 
+        var goal = getDeepGoalMinutes();
         var todaySessions = hm.getTodaySessions();
         if (todaySessions.size() == 0) {
-            drawCenteredNote(dc, "No sessions today");
+            drawCenteredNote(dc, "No sessions yet");
+            dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_centerX, (_screenHeight / 2) + 24, Graphics.FONT_XTINY,
+                        "Goal: " + goal.format("%d") + " deep min",
+                        Graphics.TEXT_JUSTIFY_CENTER);
             return;
         }
 
-        // Total focus time
-        var todayTime = hm.getTodayFocusTime();
-        dc.setColor(COLOR_TIME, Graphics.COLOR_TRANSPARENT);
+        // Hero: deep minutes today vs goal
+        var deepMin = hm.getTodayDeepTime() / 60;
+        dc.setColor(deepMin >= goal ? COLOR_FLOW : COLOR_TIME, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, 44, Graphics.FONT_MEDIUM,
-                    hm.formatDuration(todayTime), Graphics.TEXT_JUSTIFY_CENTER);
+                    deepMin.format("%d") + "/" + goal.format("%d") + "m",
+                    Graphics.TEXT_JUSTIFY_CENTER);
 
-        // Average flow score
         var y = 76;
-        var avgFlow = hm.getTodayAvgFlowScore();
-        if (avgFlow > 0) {
-            var flowColor = avgFlow >= 70 ? COLOR_FLOW : (avgFlow >= 40 ? COLOR_POMO : COLOR_TEXT_DIM);
-            dc.setColor(flowColor, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(_centerX, y, Graphics.FONT_XTINY,
-                        "Avg flow " + avgFlow.format("%d"), Graphics.TEXT_JUSTIFY_CENTER);
-            y += 18;
-        }
+        dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_centerX, y, Graphics.FONT_XTINY,
+                    "deep of " + hm.formatDurationCompact(hm.getTodayFocusTime()) + " focus",
+                    Graphics.TEXT_JUSTIFY_CENTER);
+        y += 18;
 
-        // Mode breakdown
-        var flowSessions = hm.getTodaySessionsByMode(MODE_FLOWTIMER);
-        var pomoSessions = hm.getTodaySessionsByMode(MODE_POMODORO);
-
-        if (flowSessions.size() > 0) {
-            var flowTime = hm.getTodayFocusTimeByMode(MODE_FLOWTIMER);
-            dc.setColor(COLOR_FLOW, Graphics.COLOR_TRANSPARENT);
+        var quality = hm.getTodayAvgQuality();
+        if (quality >= 0) {
+            var intr = hm.getTodayInterruptions();
+            dc.setColor(qualityColor(quality), Graphics.COLOR_TRANSPARENT);
             dc.drawText(_centerX, y, Graphics.FONT_XTINY,
-                        "Flow: " + hm.formatDurationCompact(flowTime) + " (" + flowSessions.size() + ")",
-                        Graphics.TEXT_JUSTIFY_CENTER);
-            y += 18;
-        }
-
-        if (pomoSessions.size() > 0) {
-            var pomoTime = hm.getTodayFocusTimeByMode(MODE_POMODORO);
-            var cycles = hm.getTodayCompletedCycles();
-            var cycleText = cycles > 0 ? ", " + cycles + " cyc" : "";
-            dc.setColor(COLOR_POMO, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(_centerX, y, Graphics.FONT_XTINY,
-                        "Pomo: " + hm.formatDurationCompact(pomoTime) + " (" + pomoSessions.size() + ")" + cycleText,
+                        "Quality " + quality.format("%d") + "  -  " + intr.format("%d") + " break-ins",
                         Graphics.TEXT_JUSTIFY_CENTER);
             y += 18;
         }
@@ -161,7 +153,7 @@ class StatsView extends WatchUi.View {
         var listY = divY + 8;
         var visible = todaySessions.size() < MAX_VISIBLE ? todaySessions.size() : MAX_VISIBLE;
         for (var i = 0; i < visible; i++) {
-            drawSessionRow(dc, todaySessions[i] as Dictionary, listY, i + 1);
+            drawSessionRow(dc, todaySessions[i] as Dictionary, listY);
             listY += SESSION_ROW_H;
         }
 
@@ -173,47 +165,53 @@ class StatsView extends WatchUi.View {
         }
     }
 
-    private function drawSessionRow(dc as Dc, session as Dictionary, y as Number, index as Number) as Void {
-        var timestamp = session.hasKey("timestamp") ? (session["timestamp"] as Number) : 0;
-        var duration  = session.hasKey("duration")  ? (session["duration"]  as Number) : 0;
+    private function qualityColor(quality as Number) as Number {
+        if (quality >= 70) { return COLOR_FLOW; }
+        if (quality >= 40) { return COLOR_POMO; }
+        return COLOR_TEXT_DIM;
+    }
 
+    //! Row: mode, start time, quality, deep/total minutes
+    private function drawSessionRow(dc as Dc, session as Dictionary, y as Number) as Void {
         var hm = _historyManager;
-        var mode = (hm != null) ? hm.getSessionMode(session) : MODE_POMODORO;
+        if (hm == null) { return; }
+
+        var timestamp = hm.sessionNum(session, "timestamp", 0);
+        var duration  = hm.sessionNum(session, "duration", 0);
+
+        var mode = hm.getSessionMode(session);
         var modeChar = mode == MODE_FLOWTIMER ? "F" : "P";
         var modeColor = mode == MODE_FLOWTIMER ? COLOR_FLOW : COLOR_POMO;
 
         var converted = session.hasKey("converted") && (session["converted"] as Boolean);
 
-        var moment = new Time.Moment(timestamp);
-        var info   = Gregorian.info(moment, Time.FORMAT_SHORT);
+        var info = Gregorian.info(new Time.Moment(timestamp), Time.FORMAT_SHORT);
         var timeStr = info.hour.format("%02d") + ":" + info.min.format("%02d");
+        if (converted) {
+            timeStr = timeStr + "*";
+        }
 
-        var durationStr = (hm != null) ? hm.formatDurationCompact(duration) : "0m";
-
-        // Left: mode + time; middle: avg flow; right: duration
         dc.setColor(modeColor, Graphics.COLOR_TRANSPARENT);
         dc.drawText(32, y, Graphics.FONT_XTINY, modeChar, Graphics.TEXT_JUSTIFY_LEFT);
-
-        var leftText = timeStr;
-        if (converted) {
-            leftText = leftText + "*";
-        }
         dc.setColor(COLOR_TEXT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(46, y, Graphics.FONT_XTINY, leftText, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(46, y, Graphics.FONT_XTINY, timeStr, Graphics.TEXT_JUSTIFY_LEFT);
 
-        // Session avg flow score, when biometrics were recorded
-        if (session.hasKey("avgFlowScore") && session.hasKey("samples") &&
-            (session["samples"] as Number) > 0) {
-            var score = session["avgFlowScore"] as Number;
-            var scoreColor = score >= 70 ? COLOR_FLOW : (score >= 40 ? COLOR_POMO : COLOR_TEXT_DIM);
-            dc.setColor(scoreColor, Graphics.COLOR_TRANSPARENT);
-            dc.drawText(_centerX + 28, y, Graphics.FONT_XTINY,
-                        score.format("%d"), Graphics.TEXT_JUSTIFY_CENTER);
+        if (hm.hasQuality(session)) {
+            var quality = hm.sessionNum(session, "quality", 0);
+            dc.setColor(qualityColor(quality), Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_centerX + 22, y, Graphics.FONT_XTINY,
+                        quality.format("%d"), Graphics.TEXT_JUSTIFY_CENTER);
+            dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_screenWidth - 32, y, Graphics.FONT_XTINY,
+                        (hm.sessionNum(session, "deepSec", 0) / 60).format("%d") + "/" +
+                        (duration / 60).format("%d") + "m",
+                        Graphics.TEXT_JUSTIFY_RIGHT);
+        } else {
+            // Legacy session (before depth tracking): duration only
+            dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_screenWidth - 32, y, Graphics.FONT_XTINY,
+                        hm.formatDurationCompact(duration), Graphics.TEXT_JUSTIFY_RIGHT);
         }
-
-        dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_screenWidth - 32, y, Graphics.FONT_XTINY,
-                    durationStr, Graphics.TEXT_JUSTIFY_RIGHT);
     }
 
     // ── Page 1: Week ──────────────────────────────────────────
@@ -226,59 +224,65 @@ class StatsView extends WatchUi.View {
         dc.drawText(_centerX, 20, Graphics.FONT_SMALL,
                     "Last 7 Days", Graphics.TEXT_JUSTIFY_CENTER);
 
-        var days = hm.getLast7DayFocus();
+        var focusDays = hm.getLast7DayFocus();
+        var deepDays = hm.getLast7DayDeep();
 
-        var weekTotal = 0;
+        var weekFocus = 0;
+        var weekDeep = 0;
         var maxDay = 0;
-        for (var i = 0; i < days.size(); i++) {
-            weekTotal += days[i];
-            if (days[i] > maxDay) {
-                maxDay = days[i];
+        for (var i = 0; i < 7; i++) {
+            weekFocus += focusDays[i];
+            weekDeep += deepDays[i];
+            if (focusDays[i] > maxDay) {
+                maxDay = focusDays[i];
             }
         }
 
-        dc.setColor(COLOR_TIME, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_centerX, 44, Graphics.FONT_MEDIUM,
-                    hm.formatDurationCompact(weekTotal), Graphics.TEXT_JUSTIFY_CENTER);
-
-        if (weekTotal == 0) {
+        if (weekFocus == 0) {
             drawCenteredNote(dc, "No sessions yet");
             return;
         }
 
-        // Bar chart
+        dc.setColor(COLOR_FLOW, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_centerX, 44, Graphics.FONT_MEDIUM,
+                    hm.formatDurationCompact(weekDeep), Graphics.TEXT_JUSTIFY_CENTER);
+        dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_centerX, 76, Graphics.FONT_XTINY,
+                    "deep of " + hm.formatDurationCompact(weekFocus) + " focus",
+                    Graphics.TEXT_JUSTIFY_CENTER);
+
+        // Stacked bars: full height = focus time, bright part = deep time
         var barW = 16;
         var gap = 8;
         var chartW = (7 * barW) + (6 * gap);
         var left = _centerX - (chartW / 2);
-        var chartBottom = 178;
-        var maxBarH = 80;
+        var chartBottom = 182;
+        var maxBarH = 76;
 
         for (var i = 0; i < 7; i++) {
             var x = left + (i * (barW + gap));
-            var barH = 0;
-            if (maxDay > 0) {
-                barH = (days[i] * maxBarH) / maxDay;
-            }
-            if (days[i] > 0 && barH < 3) {
+            var barH = maxDay > 0 ? (focusDays[i] * maxBarH) / maxDay : 0;
+            if (focusDays[i] > 0 && barH < 3) {
                 barH = 3;
             }
-
             if (barH > 0) {
-                // Today (rightmost) highlighted in teal
-                dc.setColor(i == 6 ? COLOR_FLOW : COLOR_BAR_DIM, Graphics.COLOR_TRANSPARENT);
+                dc.setColor(COLOR_BAR_DIM, Graphics.COLOR_TRANSPARENT);
                 dc.fillRectangle(x, chartBottom - barH, barW, barH);
+                var deepH = maxDay > 0 ? (deepDays[i] * maxBarH) / maxDay : 0;
+                if (deepH > 0) {
+                    dc.setColor(COLOR_FLOW, Graphics.COLOR_TRANSPARENT);
+                    dc.fillRectangle(x, chartBottom - deepH, barW, deepH);
+                }
             } else {
                 dc.setColor(COLOR_INACTIVE, Graphics.COLOR_TRANSPARENT);
                 dc.fillRectangle(x, chartBottom - 2, barW, 2);
             }
         }
 
-        // Day-of-week letters under the bars
+        // Day-of-week letters under the bars; today in white
         var letters = ["S", "M", "T", "W", "T", "F", "S"] as Array<String>;
         var todayInfo = Gregorian.info(Time.today(), Time.FORMAT_SHORT);
         var todayDow = todayInfo.day_of_week as Number;  // 1=Sun..7=Sat
-        dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
         for (var i = 0; i < 7; i++) {
             // Bar i is (6-i) days ago
             var dow = todayDow - (6 - i);
@@ -286,12 +290,72 @@ class StatsView extends WatchUi.View {
                 dow += 7;
             }
             var x = left + (i * (barW + gap)) + (barW / 2);
-            dc.drawText(x, chartBottom + 6, Graphics.FONT_XTINY,
+            dc.setColor(i == 6 ? COLOR_TEXT : COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(x, chartBottom + 4, Graphics.FONT_XTINY,
                         letters[dow - 1], Graphics.TEXT_JUSTIFY_CENTER);
         }
     }
 
-    // ── Page 2: Records ───────────────────────────────────────
+    // ── Page 2: Insights ──────────────────────────────────────
+
+    private function drawInsightsPage(dc as Dc) as Void {
+        var hm = _historyManager;
+        if (hm == null) { return; }
+
+        dc.setColor(COLOR_ACCENT, Graphics.COLOR_TRANSPARENT);
+        dc.drawText(_centerX, 20, Graphics.FONT_SMALL,
+                    "Insights", Graphics.TEXT_JUSTIFY_CENTER);
+
+        var y = 56;
+        var missing = false;
+
+        var peak = hm.getPeakHourWindow();
+        if (peak < 0) { missing = true; }
+        drawRecordRow(dc, y, "Peak hours",
+                      peak >= 0 ? formatHour(peak) + "-" + formatHour((peak + 2) % 24) : "--",
+                      peak >= 0 ? COLOR_FLOW : COLOR_TEXT_DIM);
+        y += 28;
+
+        var spot = hm.getSweetSpotBucket();
+        if (spot < 0) { missing = true; }
+        var spotLabels = ["<25m", "25-45m", "45-75m", "75m+"] as Array<String>;
+        drawRecordRow(dc, y, "Best length",
+                      spot >= 0 ? spotLabels[spot] : "--",
+                      spot >= 0 ? COLOR_FLOW : COLOR_TEXT_DIM);
+        y += 28;
+
+        var rate = hm.getInterruptionRateTenths();
+        if (rate < 0) { missing = true; }
+        drawRecordRow(dc, y, "Break-ins",
+                      rate >= 0 ? (rate / 10).format("%d") + "." + (rate % 10).format("%d") + "/h" : "--",
+                      rate < 0 ? COLOR_TEXT_DIM : (rate <= 10 ? COLOR_FLOW : COLOR_TEXT));
+        y += 28;
+
+        var agree = hm.getRatingAgreement();
+        if (agree < 0) { missing = true; }
+        drawRecordRow(dc, y, "Watch vs you",
+                      agree >= 0 ? agree.format("%d") + "% agree" : "--",
+                      agree >= 0 ? COLOR_TEXT : COLOR_TEXT_DIM);
+        y += 28;
+
+        if (missing) {
+            dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+            dc.drawText(_centerX, y + 2, Graphics.FONT_XTINY,
+                        "Sharpens with more sessions", Graphics.TEXT_JUSTIFY_CENTER);
+        }
+    }
+
+    //! Hour of day in the device's 12/24h style, compact
+    private function formatHour(hour as Number) as String {
+        if (System.getDeviceSettings().is24Hour) {
+            return hour.format("%02d");
+        }
+        var h = hour % 12;
+        if (h == 0) { h = 12; }
+        return h.format("%d") + (hour < 12 ? "a" : "p");
+    }
+
+    // ── Page 3: Records ───────────────────────────────────────
 
     private function drawRecordsPage(dc as Dc) as Void {
         var hm = _historyManager;
@@ -309,30 +373,31 @@ class StatsView extends WatchUi.View {
                       streak > 0 ? COLOR_FLOW : COLOR_TEXT_DIM);
         y += 28;
 
-        drawRecordRow(dc, y, "Best day",
-                      hm.formatDurationCompact(hm.getBestDayFocusTime()), COLOR_TIME);
+        drawRecordRow(dc, y, "Best deep day",
+                      hm.formatDurationCompact(hm.getBestDeepDay()), COLOR_TIME);
         y += 28;
 
-        var bestFlow = hm.getBestSessionFlowScore();
-        drawRecordRow(dc, y, "Best flow",
-                      bestFlow > 0 ? bestFlow.format("%d") : "--",
-                      bestFlow >= 70 ? COLOR_FLOW : COLOR_TEXT);
+        var bestQuality = hm.getBestQuality();
+        drawRecordRow(dc, y, "Best quality",
+                      bestQuality > 0 ? bestQuality.format("%d") : "--",
+                      bestQuality >= 70 ? COLOR_FLOW : COLOR_TEXT);
         y += 28;
 
-        drawRecordRow(dc, y, "Sessions",
-                      hm.getSessionCount().format("%d"), COLOR_TEXT);
+        var longest = hm.getLongestBlockEver();
+        drawRecordRow(dc, y, "Longest block",
+                      longest > 0 ? (longest / 60).format("%d") + " min" : "--", COLOR_TEXT);
         y += 28;
 
-        drawRecordRow(dc, y, "All time",
-                      hm.formatDurationCompact(hm.getTotalFocusTime()), COLOR_TEXT);
+        drawRecordRow(dc, y, "All-time deep",
+                      hm.formatDurationCompact(hm.getTotalDeepTime()), COLOR_TEXT);
     }
 
     private function drawRecordRow(dc as Dc, y as Number, label as String,
                                    value as String, valueColor as Number) as Void {
         dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(50, y, Graphics.FONT_XTINY, label, Graphics.TEXT_JUSTIFY_LEFT);
+        dc.drawText(44, y, Graphics.FONT_XTINY, label, Graphics.TEXT_JUSTIFY_LEFT);
         dc.setColor(valueColor, Graphics.COLOR_TRANSPARENT);
-        dc.drawText(_screenWidth - 50, y, Graphics.FONT_XTINY,
+        dc.drawText(_screenWidth - 44, y, Graphics.FONT_XTINY,
                     value, Graphics.TEXT_JUSTIFY_RIGHT);
     }
 }

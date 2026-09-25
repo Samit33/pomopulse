@@ -18,6 +18,15 @@ function isGarminSyncEnabled() as Boolean {
     return !(value instanceof Boolean && (value as Boolean) == false);
 }
 
+//! Daily deep-work goal in minutes (defaults to 2 hours)
+function getDeepGoalMinutes() as Number {
+    var value = Application.Properties.getValue("deepGoal");
+    if (value instanceof Number && (value as Number) > 0) {
+        return value as Number;
+    }
+    return 120;
+}
+
 //! Settings menu with mode selector and conditional Pomodoro settings
 class SettingsMenu extends WatchUi.Menu2 {
 
@@ -38,11 +47,13 @@ class SettingsMenu extends WatchUi.Menu2 {
             addItem(new WatchUi.MenuItem("Long Break", null, :longBreak, null));
         }
 
-        addItem(new WatchUi.MenuItem("Live Flow", isLiveFlowEnabled() ? "On" : "Off",
+        addItem(new WatchUi.MenuItem("Deep Goal", getDeepGoalMinutes().format("%d") + " min/day",
+                                     :deepGoal, null));
+        addItem(new WatchUi.MenuItem("Live Depth", isLiveFlowEnabled() ? "On" : "Off",
                                      :liveFlow, null));
         addItem(new WatchUi.MenuItem("Garmin Sync", isGarminSyncEnabled() ? "On" : "Off",
                                      :garminSync, null));
-        addItem(new WatchUi.MenuItem("Reset Baseline", "HRV calibration", :resetBaseline, null));
+        addItem(new WatchUi.MenuItem("Reset Baseline", "HR/HRV calibration", :resetBaseline, null));
         addItem(new WatchUi.MenuItem("Clear History", null, :clearHistory, null));
     }
 }
@@ -69,6 +80,8 @@ class SettingsMenuDelegate extends WatchUi.Menu2InputDelegate {
             showDurationPicker("Short Break", tc.getShortBreakDurationMinutes(), :shortBreak);
         } else if (id == :longBreak && tc != null) {
             showDurationPicker("Long Break", tc.getLongBreakDurationMinutes(), :longBreak);
+        } else if (id == :deepGoal) {
+            showDurationPicker("Deep Goal", getDeepGoalMinutes(), :deepGoal);
         } else if (id == :liveFlow) {
             var enabled = !isLiveFlowEnabled();
             Application.Properties.setValue("liveFlow", enabled ? 1 : 0);
@@ -104,7 +117,7 @@ class SettingsMenuDelegate extends WatchUi.Menu2InputDelegate {
     }
 
     private function showResetBaselineConfirmation() as Void {
-        var dialog = new WatchUi.Confirmation("Reset HRV baseline?");
+        var dialog = new WatchUi.Confirmation("Reset HR/HRV baseline?");
         WatchUi.pushView(dialog, new ResetBaselineDelegate(), WatchUi.SLIDE_LEFT);
     }
 
@@ -168,6 +181,8 @@ class DurationPickerMenu extends WatchUi.Menu2 {
             options = [15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
         } else if (settingId == :shortBreak) {
             options = [3, 5, 10, 15];
+        } else if (settingId == :deepGoal) {
+            options = [60, 90, 120, 150, 180, 240];
         } else {
             options = [10, 15, 20, 25, 30];
         }
@@ -196,7 +211,9 @@ class DurationPickerDelegate extends WatchUi.Menu2InputDelegate {
     function onSelect(item as WatchUi.MenuItem) as Void {
         var minutes = item.getId() as Number;
 
-        if (_timerController != null) {
+        if (_settingId == :deepGoal) {
+            Application.Properties.setValue("deepGoal", minutes);
+        } else if (_timerController != null) {
             if (_settingId == :workDuration) {
                 _timerController.setWorkDuration(minutes);
             } else if (_settingId == :shortBreak) {
@@ -224,9 +241,9 @@ class ResetBaselineDelegate extends WatchUi.ConfirmationDelegate {
 
     function onResponse(response as Confirm) as Boolean {
         if (response == WatchUi.CONFIRM_YES) {
-            var fc = getApp().getFlowCalculator();
-            if (fc != null) {
-                fc.resetBaseline();
+            var engine = getApp().getEngine();
+            if (engine != null) {
+                engine.resetBaseline();
             }
         }
         return true;

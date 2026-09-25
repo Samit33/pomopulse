@@ -87,26 +87,6 @@ class HistoryManager {
         return total;
     }
 
-    //! Get average flow score across all sessions (weighted by samples)
-    function getOverallAvgFlowScore() as Number {
-        if (_sessions == null || _sessions.size() == 0) {
-            return 0;
-        }
-        var totalWeighted = 0;
-        var totalSamples = 0;
-        for (var i = 0; i < _sessions.size(); i++) {
-            var session = _sessions[i];
-            if (session.hasKey("avgFlowScore") && session.hasKey("samples")) {
-                totalWeighted += (session["avgFlowScore"] as Number) * (session["samples"] as Number);
-                totalSamples += (session["samples"] as Number);
-            }
-        }
-        if (totalSamples == 0) {
-            return 0;
-        }
-        return totalWeighted / totalSamples;
-    }
-
     //! Get sessions from today
     function getTodaySessions() as Array<Dictionary> {
         var todaySessions = [] as Array<Dictionary>;
@@ -190,27 +170,6 @@ class HistoryManager {
         return getTodayPomodoroCount() / 4;
     }
 
-    //! Get today's average flow score (weighted by samples)
-    function getTodayAvgFlowScore() as Number {
-        var todaySessions = getTodaySessions();
-        if (todaySessions.size() == 0) {
-            return 0;
-        }
-        var totalWeighted = 0;
-        var totalSamples = 0;
-        for (var i = 0; i < todaySessions.size(); i++) {
-            var session = todaySessions[i];
-            if (session.hasKey("avgFlowScore") && session.hasKey("samples")) {
-                totalWeighted += (session["avgFlowScore"] as Number) * (session["samples"] as Number);
-                totalSamples += (session["samples"] as Number);
-            }
-        }
-        if (totalSamples == 0) {
-            return 0;
-        }
-        return totalWeighted / totalSamples;
-    }
-
     //! Total focus seconds for the day N days ago (0 = today), local time
     function getFocusTimeForDaysAgo(daysAgo as Number) as Number {
         if (_sessions == null) {
@@ -256,11 +215,240 @@ class HistoryManager {
         return streak;
     }
 
-    //! Best single day of focus in the stored history (last ~30 days)
-    function getBestDayFocusTime() as Number {
+    // ── Deep-work analytics ───────────────────────────────────
+    // Sessions saved before the deep-work engine have no "quality" key;
+    // they still count toward focus time but are left out of depth stats.
+
+    //! Numeric field from a session, or a default when missing
+    function sessionNum(session as Dictionary, key as String, fallback as Number) as Number {
+        if (session.hasKey(key) && session[key] instanceof Number) {
+            return session[key] as Number;
+        }
+        return fallback;
+    }
+
+    function hasQuality(session as Dictionary) as Boolean {
+        return session.hasKey("quality") && session["quality"] instanceof Number;
+    }
+
+    //! Deep seconds for the day N days ago (0 = today), local time
+    function getDeepTimeForDaysAgo(daysAgo as Number) as Number {
+        if (_sessions == null) {
+            return 0;
+        }
+        var dayStart = Time.today().value() - (daysAgo * 86400);
+        var dayEnd = dayStart + 86400;
+        var total = 0;
+        for (var i = 0; i < _sessions.size(); i++) {
+            var session = _sessions[i];
+            var ts = sessionNum(session, "timestamp", 0);
+            if (ts >= dayStart && ts < dayEnd) {
+                total += sessionNum(session, "deepSec", 0);
+            }
+        }
+        return total;
+    }
+
+    function getTodayDeepTime() as Number {
+        return getDeepTimeForDaysAgo(0);
+    }
+
+    //! Deep seconds per day for the last 7 days, oldest first
+    function getLast7DayDeep() as Array<Number> {
+        var days = [] as Array<Number>;
+        for (var d = 6; d >= 0; d--) {
+            days.add(getDeepTimeForDaysAgo(d));
+        }
+        return days;
+    }
+
+    //! Duration-weighted average quality of the given sessions (-1 = none)
+    function avgQuality(sessions as Array<Dictionary>) as Number {
+        var weighted = 0;
+        var total = 0;
+        for (var i = 0; i < sessions.size(); i++) {
+            var session = sessions[i];
+            if (hasQuality(session)) {
+                var minutes = sessionNum(session, "duration", 0) / 60;
+                weighted += sessionNum(session, "quality", 0) * minutes;
+                total += minutes;
+            }
+        }
+        return total > 0 ? weighted / total : -1;
+    }
+
+    function getTodayAvgQuality() as Number {
+        return avgQuality(getTodaySessions());
+    }
+
+    function getTodayInterruptions() as Number {
+        var todaySessions = getTodaySessions();
+        var total = 0;
+        for (var i = 0; i < todaySessions.size(); i++) {
+            total += sessionNum(todaySessions[i], "intr", 0);
+        }
+        return total;
+    }
+
+    //! Sessions with a quality score from the last N days
+    private function recentQualitySessions(days as Number) as Array<Dictionary> {
+        var result = [] as Array<Dictionary>;
+        if (_sessions == null) {
+            return result;
+        }
+        var cutoff = Time.today().value() - ((days - 1) * 86400);
+        for (var i = 0; i < _sessions.size(); i++) {
+            var session = _sessions[i];
+            if (hasQuality(session) && sessionNum(session, "timestamp", 0) >= cutoff) {
+                result.add(session);
+            }
+        }
+        return result;
+    }
+
+    //! Interruptions per focused hour over the last 7 days, in tenths
+    //! (e.g. 23 = 2.3/h). -1 when there is no data.
+    function getInterruptionRateTenths() as Number {
+        var sessions = recentQualitySessions(7);
+        var intr = 0;
+        var seconds = 0;
+        for (var i = 0; i < sessions.size(); i++) {
+            intr += sessionNum(sessions[i], "intr", 0);
+            seconds += sessionNum(sessions[i], "duration", 0);
+        }
+        if (seconds < 600) {
+            return -1;
+        }
+        return (intr * 36000) / seconds;
+    }
+
+    //! Start hour of the 2-hour window with the best average quality,
+    //! or -1 until there is enough data (>= 2 sessions in the window).
+    //! Single pass: Gregorian.info is too slow to call per bucket.
+    function getPeakHourWindow() as Number {
+        if (_sessions == null) {
+            return -1;
+        }
+        var weighted = [] as Array<Number>;
+        var minutes  = [] as Array<Number>;
+        var counts   = [] as Array<Number>;
+        for (var k = 0; k < 12; k++) {
+            weighted.add(0);
+            minutes.add(0);
+            counts.add(0);
+        }
+        for (var i = 0; i < _sessions.size(); i++) {
+            var session = _sessions[i];
+            if (!hasQuality(session)) {
+                continue;
+            }
+            var info = Gregorian.info(new Time.Moment(sessionNum(session, "timestamp", 0)),
+                                      Time.FORMAT_SHORT);
+            var slot = (info.hour as Number) / 2;
+            var m = sessionNum(session, "duration", 0) / 60;
+            weighted[slot] += sessionNum(session, "quality", 0) * m;
+            minutes[slot] += m;
+            counts[slot] += 1;
+        }
+        var bestHour = -1;
+        var bestQuality = -1;
+        for (var w = 0; w < 12; w++) {
+            if (counts[w] >= 2 && minutes[w] > 0) {
+                var q = weighted[w] / minutes[w];
+                if (q > bestQuality) {
+                    bestQuality = q;
+                    bestHour = w * 2;
+                }
+            }
+        }
+        return bestHour;
+    }
+
+    //! Duration bucket with the best average quality, or -1 until there is
+    //! enough data. 0: <25 min, 1: 25-44, 2: 45-74, 3: 75+
+    function getSweetSpotBucket() as Number {
+        if (_sessions == null) {
+            return -1;
+        }
+        var bestBucket = -1;
+        var bestQuality = -1;
+        for (var b = 0; b < 4; b++) {
+            var bucket = [] as Array<Dictionary>;
+            for (var i = 0; i < _sessions.size(); i++) {
+                var session = _sessions[i];
+                if (hasQuality(session) &&
+                    durationBucket(sessionNum(session, "duration", 0)) == b) {
+                    bucket.add(session);
+                }
+            }
+            if (bucket.size() >= 2) {
+                var q = avgQuality(bucket);
+                if (q > bestQuality) {
+                    bestQuality = q;
+                    bestBucket = b;
+                }
+            }
+        }
+        return bestBucket;
+    }
+
+    private function durationBucket(seconds as Number) as Number {
+        var minutes = seconds / 60;
+        if (minutes < 25) { return 0; }
+        if (minutes < 45) { return 1; }
+        if (minutes < 75) { return 2; }
+        return 3;
+    }
+
+    //! How often the watch's verdict matches your own rating (percent),
+    //! or -1 with fewer than 3 rated sessions
+    function getRatingAgreement() as Number {
+        if (_sessions == null) {
+            return -1;
+        }
+        var rated = 0;
+        var agree = 0;
+        for (var i = 0; i < _sessions.size(); i++) {
+            var session = _sessions[i];
+            var rating = sessionNum(session, "rating", 0);
+            if (rating > 0 && hasQuality(session)) {
+                rated++;
+                if (qualityToRating(sessionNum(session, "quality", 0)) == rating) {
+                    agree++;
+                }
+            }
+        }
+        return rated >= 3 ? (agree * 100) / rated : -1;
+    }
+
+    //! Map a quality score onto the 3-step self-rating scale
+    function qualityToRating(quality as Number) as Number {
+        if (quality >= 70) { return 3; }
+        if (quality >= 40) { return 2; }
+        return 1;
+    }
+
+    //! Attach a self-rating (1 shallow .. 3 deep) to the session that
+    //! started at the given timestamp
+    function setSelfRating(timestamp as Number, rating as Number) as Void {
+        if (_sessions == null) {
+            return;
+        }
+        for (var i = 0; i < _sessions.size(); i++) {
+            var session = _sessions[i];
+            if (sessionNum(session, "timestamp", -1) == timestamp) {
+                session["rating"] = rating;
+                saveHistory();
+                return;
+            }
+        }
+    }
+
+    //! Best single day of deep time (last ~30 days)
+    function getBestDeepDay() as Number {
         var best = 0;
         for (var d = 0; d < 30; d++) {
-            var dayTotal = getFocusTimeForDaysAgo(d);
+            var dayTotal = getDeepTimeForDaysAgo(d);
             if (dayTotal > best) {
                 best = dayTotal;
             }
@@ -268,24 +456,37 @@ class HistoryManager {
         return best;
     }
 
-    //! Best session average flow score in stored history
-    function getBestSessionFlowScore() as Number {
+    function getBestQuality() as Number {
+        return maxField("quality");
+    }
+
+    function getLongestBlockEver() as Number {
+        return maxField("longest");
+    }
+
+    private function maxField(key as String) as Number {
         if (_sessions == null) {
             return 0;
         }
         var best = 0;
         for (var i = 0; i < _sessions.size(); i++) {
-            var session = _sessions[i];
-            if (session.hasKey("avgFlowScore") && session.hasKey("samples")) {
-                if ((session["samples"] as Number) > 0) {
-                    var score = session["avgFlowScore"] as Number;
-                    if (score > best) {
-                        best = score;
-                    }
-                }
+            var value = sessionNum(_sessions[i], key, 0);
+            if (value > best) {
+                best = value;
             }
         }
         return best;
+    }
+
+    function getTotalDeepTime() as Number {
+        if (_sessions == null) {
+            return 0;
+        }
+        var total = 0;
+        for (var i = 0; i < _sessions.size(); i++) {
+            total += sessionNum(_sessions[i], "deepSec", 0);
+        }
+        return total;
     }
 
     //! Format duration as HH:MM:SS or MM:SS

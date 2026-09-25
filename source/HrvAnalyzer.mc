@@ -1,5 +1,6 @@
 import Toybox.Lang;
 import Toybox.Math;
+import Toybox.System;
 
 //! Analyzes heart beat intervals to calculate HRV metrics (RMSSD)
 class HrvAnalyzer {
@@ -15,6 +16,17 @@ class HrvAnalyzer {
     private const MIN_INTERVAL_MS = 300;   // ~200 bpm max
     private const MAX_INTERVAL_MS = 2000;  // ~30 bpm min
 
+    // Ectopic filter compares against the previous *raw* beat, and gives up
+    // after a few rejections in a row (a genuine HR shift, not an artifact)
+    private const MAX_CONSECUTIVE_REJECTS = 3;
+    private var _lastRaw as Number = 0;
+    private var _rejectStreak as Number = 0;
+
+    // HRV is only trusted while clean beats keep arriving
+    private const FRESH_MS = 5000;
+    private const MIN_FRESH_INTERVALS = 10;
+    private var _lastAcceptMs as Number = 0;
+
     //! Constructor
     function initialize() {
         _intervals = [] as Array<Number>;
@@ -24,6 +36,9 @@ class HrvAnalyzer {
     function reset() as Void {
         _intervals = [] as Array<Number>;
         _rmssd = 0.0;
+        _lastRaw = 0;
+        _rejectStreak = 0;
+        _lastAcceptMs = 0;
     }
 
     //! Add a new R-R interval
@@ -33,15 +48,20 @@ class HrvAnalyzer {
             return;
         }
 
-        // Ectopic beat detection: reject if >30% change from previous
-        if (_intervals.size() > 0) {
-            var lastInterval = _intervals[_intervals.size() - 1];
-            var change = (intervalMs - lastInterval).abs();
-            var threshold = lastInterval * 0.3;
-            if (change > threshold) {
+        // Ectopic beat detection: reject if >30% change from the previous beat.
+        // Without the reject-streak escape, a real step change in heart rate
+        // would lock the filter out forever.
+        var previous = _lastRaw;
+        _lastRaw = intervalMs;
+        if (previous > 0) {
+            var change = (intervalMs - previous).abs();
+            if (change > previous * 0.3 && _rejectStreak < MAX_CONSECUTIVE_REJECTS) {
+                _rejectStreak++;
                 return;  // Likely ectopic beat or artifact
             }
         }
+        _rejectStreak = 0;
+        _lastAcceptMs = System.getTimer();
 
         _intervals.add(intervalMs);
 
@@ -84,6 +104,12 @@ class HrvAnalyzer {
     //! Get current RMSSD value
     function getRmssd() as Float {
         return _rmssd;
+    }
+
+    //! True while enough clean beats are buffered and still arriving
+    function isFresh() as Boolean {
+        return _intervals.size() >= MIN_FRESH_INTERVALS &&
+               (System.getTimer() - _lastAcceptMs) < FRESH_MS;
     }
 
     //! Get number of intervals in buffer

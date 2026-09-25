@@ -6,12 +6,14 @@ import Toybox.System;
 import Toybox.WatchUi;
 
 //! Main timer display — dual-mode (Flowtimer / Pomodoro).
-//! Shows a discreet live flow-zone indicator during focus (no distracting
-//! numbers); full insights are surfaced post-session.
+//! During focus it shows a discreet live depth-zone indicator and how long
+//! the current block has been unbroken (no scores to chase); full insights
+//! are surfaced post-session. Idle screens show progress toward the daily
+//! deep-work goal.
 class PomoPulseView extends WatchUi.View {
 
     private var _timerController as TimerController?;
-    private var _flowCalculator  as FlowScoreCalculator?;
+    private var _engine  as DeepWorkEngine?;
     private var _sensorManager   as SensorManager?;
     private var _sessionManager  as SessionManager?;
 
@@ -20,7 +22,7 @@ class PomoPulseView extends WatchUi.View {
     private var _centerX      as Number = 0;
     private var _centerY      as Number = 0;
 
-    // Whether the live zone indicator is enabled (Settings > Live Flow)
+    // Whether live depth feedback is enabled (Settings > Live Depth)
     private var _liveFlowEnabled as Boolean = true;
 
     // Colors
@@ -37,11 +39,11 @@ class PomoPulseView extends WatchUi.View {
     // Flowtimer ring spans the 120-min ceiling with milestone ticks
     private const FLOW_RING_TOTAL_SECONDS = 120 * 60;
 
-    function initialize(timerController as TimerController?, flowCalculator as FlowScoreCalculator?,
+    function initialize(timerController as TimerController?, engine as DeepWorkEngine?,
                        sensorManager as SensorManager?, sessionManager as SessionManager?) {
         View.initialize();
         _timerController = timerController;
-        _flowCalculator  = flowCalculator;
+        _engine  = engine;
         _sensorManager   = sensorManager;
         _sessionManager  = sessionManager;
         var settings = System.getDeviceSettings();
@@ -71,7 +73,7 @@ class PomoPulseView extends WatchUi.View {
         }
     }
 
-    //! Called every second — flow scores are recorded at app level,
+    //! Called every second — depth is recorded at app level,
     //! this only refreshes the display.
     function onTimerTick() as Void {
         WatchUi.requestUpdate();
@@ -121,7 +123,7 @@ class PomoPulseView extends WatchUi.View {
             dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
             dc.drawText(_centerX, _centerY + 25, Graphics.FONT_SMALL,
                         "Ready", Graphics.TEXT_JUSTIFY_CENTER);
-            drawTodayTeaser(dc, _centerY + 55);
+            drawGoalTeaser(dc, _centerY + 52);
             dc.drawText(_centerX, _screenHeight - 45, Graphics.FONT_TINY,
                         "Press START", Graphics.TEXT_JUSTIFY_CENTER);
 
@@ -132,7 +134,7 @@ class PomoPulseView extends WatchUi.View {
                         tc.getFlowSessionLabel(), Graphics.TEXT_JUSTIFY_CENTER);
 
             drawLiveZoneIndicator(dc);
-            drawSensorInfo(dc);
+            drawUnbroken(dc);
 
         } else if (state == STATE_FLOW_PAUSED) {
             dc.setColor(COLOR_PAUSED, Graphics.COLOR_TRANSPARENT);
@@ -208,7 +210,7 @@ class PomoPulseView extends WatchUi.View {
             dc.drawText(_centerX, _centerY + 25, Graphics.FONT_SMALL,
                         "Focus " + tc.getCyclePosition() + " of 4",
                         Graphics.TEXT_JUSTIFY_CENTER);
-            drawTodayTeaser(dc, _centerY + 55);
+            drawGoalTeaser(dc, _centerY + 52);
             dc.drawText(_centerX, _screenHeight - 45, Graphics.FONT_TINY,
                         "Press START", Graphics.TEXT_JUSTIFY_CENTER);
 
@@ -219,7 +221,7 @@ class PomoPulseView extends WatchUi.View {
                         Graphics.TEXT_JUSTIFY_CENTER);
 
             drawLiveZoneIndicator(dc);
-            drawSensorInfo(dc);
+            drawUnbroken(dc);
         }
     }
 
@@ -323,15 +325,15 @@ class PomoPulseView extends WatchUi.View {
         }
     }
 
-    //! Discreet live zone indicator: three dots (building / focused / flow).
+    //! Discreet live zone indicator: three dots (shallow / focused / deep).
     //! No numbers — just a hint of where you are. Hidden during the sensor
     //! warm-up minute and when disabled in settings.
     private function drawLiveZoneIndicator(dc as Dc) as Void {
         if (!_liveFlowEnabled) { return; }
-        var fc = _flowCalculator;
-        if (fc == null) { return; }
+        var engine = _engine;
+        if (engine == null) { return; }
 
-        var zone = fc.getCurrentZone();
+        var zone = engine.getCurrentZone();
         var y = _screenHeight - 68;
         var spacing = 16;
 
@@ -349,25 +351,51 @@ class PomoPulseView extends WatchUi.View {
         }
     }
 
-    //! Total focus time recorded today (idle screens only)
-    private function drawTodayTeaser(dc as Dc, y as Number) as Void {
+    //! Deep minutes today vs. the daily goal, with a small progress bar
+    //! (idle screens only)
+    private function drawGoalTeaser(dc as Dc, y as Number) as Void {
         var hm = getApp().getHistoryManager();
         if (hm == null) { return; }
-        var todayTime = hm.getTodayFocusTime();
-        if (todayTime <= 0) { return; }
+        var deepMin = hm.getTodayDeepTime() / 60;
+        var goal = getDeepGoalMinutes();
+
         dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
         dc.drawText(_centerX, y, Graphics.FONT_XTINY,
-                    "Today: " + hm.formatDurationCompact(todayTime),
+                    "Deep today " + deepMin.format("%d") + "/" + goal.format("%d") + "m",
                     Graphics.TEXT_JUSTIFY_CENTER);
+
+        var barW = 90;
+        var left = _centerX - (barW / 2);
+        var barY = y + 22;
+        dc.setColor(COLOR_RING_BG, Graphics.COLOR_TRANSPARENT);
+        dc.fillRectangle(left, barY, barW, 4);
+        var fill = goal > 0 ? (deepMin * barW) / goal : 0;
+        if (fill > barW) { fill = barW; }
+        if (fill > 0) {
+            dc.setColor(COLOR_FLOW, Graphics.COLOR_TRANSPARENT);
+            dc.fillRectangle(left, barY, fill, 4);
+        }
+        // Callers draw the "Press START" hint next in the dim color
+        dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
     }
 
-    //! HR readout at bottom
-    private function drawSensorInfo(dc as Dc) as Void {
-        if (_sensorManager == null) { return; }
-        var hr = _sensorManager.getHeartRate();
-        var hrText = hr > 0 ? hr.format("%d") + " bpm" : "-- bpm";
-        dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+    //! How long the current block has gone without an interruption —
+    //! the thing worth protecting. Replaced by "Interrupted" during a
+    //! detected disruption.
+    private function drawUnbroken(dc as Dc) as Void {
+        if (!_liveFlowEnabled) { return; }
+        var engine = _engine;
+        if (engine == null) { return; }
+
+        var text;
+        if (engine.isInterrupted()) {
+            dc.setColor(COLOR_BUILD, Graphics.COLOR_TRANSPARENT);
+            text = "Interrupted";
+        } else {
+            dc.setColor(COLOR_TEXT_DIM, Graphics.COLOR_TRANSPARENT);
+            text = (engine.getUnbrokenSeconds() / 60).format("%d") + "m unbroken";
+        }
         dc.drawText(_centerX, _screenHeight - 45, Graphics.FONT_TINY,
-                    hrText, Graphics.TEXT_JUSTIFY_CENTER);
+                    text, Graphics.TEXT_JUSTIFY_CENTER);
     }
 }

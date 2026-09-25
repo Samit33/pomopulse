@@ -5,11 +5,15 @@ import Toybox.Lang;
 import Toybox.System;
 import Toybox.Time;
 
-//! Manages FIT recording sessions with custom FlowScore field
+//! Manages FIT recording (per-second Depth, plus session-level Quality,
+//! Deep Minutes and Interruptions) and writes finished sessions to history.
 class SessionManager {
 
     private var _session as ActivityRecording.Session?;
-    private var _flowScoreField as FitContributor.Field?;
+    private var _depthField         as FitContributor.Field?;
+    private var _qualityField       as FitContributor.Field?;
+    private var _deepMinutesField   as FitContributor.Field?;
+    private var _interruptionsField as FitContributor.Field?;
     private var _historyManager as HistoryManager?;
 
     // Session state
@@ -17,12 +21,9 @@ class SessionManager {
     private var _isPaused as Boolean = false;
     private var _sessionStartTime as Time.Moment?;
 
-    // Flow score aggregates
-    private var _flowScoreSum as Number = 0;
-    private var _flowScoreSamples as Number = 0;
-    private var _peakFlowScore as Number = 0;
-    private var _minFlowScore as Number = 100;
-    private var _timeInFlowZone as Number = 0;
+    // Depth aggregates
+    private var _depthSum as Number = 0;
+    private var _depthSamples as Number = 0;
 
     // Active time (excludes paused time)
     private var _activeSeconds as Number = 0;
@@ -31,14 +32,18 @@ class SessionManager {
     private var _mode as Number = 0;          // 0=Flowtimer, 1=Pomodoro
     private var _converted as Boolean = false;
 
-    // Flow metrics supplied by the calculator just before saving
-    private var _timeToFlow as Number = -1;
-    private var _longestFlowStreak as Number = 0;
+    // Engine-derived fields merged into the history record on save
+    private var _extras as Dictionary?;
 
-    private const FLOW_SCORE_FIELD_ID = 0;
+    // Timestamp of the last session written to history (for self-rating)
+    private var _lastSavedTimestamp as Number = 0;
+
+    private const DEPTH_FIELD_ID         = 0;
+    private const QUALITY_FIELD_ID       = 1;
+    private const DEEP_MINUTES_FIELD_ID  = 2;
+    private const INTERRUPTIONS_FIELD_ID = 3;
     private const MIN_SESSION_SECONDS = 600;  // 10 minutes
 
-    //! Constructor
     function initialize(historyManager as HistoryManager?) {
         _historyManager = historyManager;
     }
@@ -53,10 +58,10 @@ class SessionManager {
         _converted = converted;
     }
 
-    //! Attach calculator-derived flow metrics before stopping the session
-    function setFlowMetrics(timeToFlow as Number, longestFlowStreak as Number) as Void {
-        _timeToFlow = timeToFlow;
-        _longestFlowStreak = longestFlowStreak;
+    //! Attach engine-derived session fields (quality, deep time, ...)
+    //! just before stopping the session
+    function setSessionExtras(extras as Dictionary) as Void {
+        _extras = extras;
     }
 
     //! Start a new recording session
@@ -66,34 +71,35 @@ class SessionManager {
         }
 
         try {
-            _session = ActivityRecording.createSession({
-                :name => "Focus Session",
+            var session = ActivityRecording.createSession({
+                :name => "Deep Work",
                 :sport => Activity.SPORT_GENERIC,
                 :subSport => Activity.SUB_SPORT_GENERIC
             });
+            _session = session;
 
-            var session = _session;
-            _flowScoreField = session.createField(
-                "flow_score",
-                FLOW_SCORE_FIELD_ID,
+            _depthField = session.createField("depth", DEPTH_FIELD_ID,
                 FitContributor.DATA_TYPE_UINT8,
-                {
-                    :mesgType => FitContributor.MESG_TYPE_RECORD,
-                    :units => "score"
-                }
-            );
+                {:mesgType => FitContributor.MESG_TYPE_RECORD, :units => "depth"});
+            _qualityField = session.createField("deep_quality", QUALITY_FIELD_ID,
+                FitContributor.DATA_TYPE_UINT8,
+                {:mesgType => FitContributor.MESG_TYPE_SESSION, :units => "score"});
+            _deepMinutesField = session.createField("deep_minutes", DEEP_MINUTES_FIELD_ID,
+                FitContributor.DATA_TYPE_UINT16,
+                {:mesgType => FitContributor.MESG_TYPE_SESSION, :units => "min"});
+            _interruptionsField = session.createField("interruptions", INTERRUPTIONS_FIELD_ID,
+                FitContributor.DATA_TYPE_UINT16,
+                {:mesgType => FitContributor.MESG_TYPE_SESSION, :units => "count"});
 
-            _session.start();
+            session.start();
             _isRecording = true;
             _isPaused = false;
             _sessionStartTime = Time.now();
-            _flowScoreSum = 0;
-            _flowScoreSamples = 0;
-            _peakFlowScore = 0;
-            _minFlowScore = 100;
-            _timeInFlowZone = 0;
+            _depthSum = 0;
+            _depthSamples = 0;
             _activeSeconds = 0;
             _converted = false;
+            _extras = null;
 
         } catch (ex) {
             System.println("Error starting session: " + ex.getErrorMessage());
@@ -118,51 +124,39 @@ class SessionManager {
         _isPaused = false;
     }
 
-    //! Record current flow score (call every second during active session)
-    function recordFlowScore(flowScore as Number) as Void {
-        if (!_isRecording || _isPaused || _flowScoreField == null) {
+    //! Record current depth (call every second during active focus)
+    function recordDepth(depth as Number) as Void {
+        if (!_isRecording || _isPaused) {
             return;
         }
+        _activeSeconds++;
+        _depthSum += depth;
+        _depthSamples++;
 
-        try {
-            _flowScoreField.setData(flowScore);
-
-            _flowScoreSum += flowScore;
-            _flowScoreSamples++;
-            _activeSeconds++;
-
-            if (flowScore > _peakFlowScore) {
-                _peakFlowScore = flowScore;
+        var field = _depthField;
+        if (field != null) {
+            try {
+                field.setData(depth);
+            } catch (ex) {
+                System.println("Error recording depth: " + ex.getErrorMessage());
             }
-            if (flowScore < _minFlowScore) {
-                _minFlowScore = flowScore;
-            }
-            if (flowScore >= 70) {
-                _timeInFlowZone++;
-            }
-
-        } catch (ex) {
-            System.println("Error recording flow score: " + ex.getErrorMessage());
         }
     }
 
-    //! Stop and save session (returns true if saved, false if discarded due to short duration)
+    //! Stop and save session. Returns true if saved, false if discarded
+    //! for being under the 10-minute floor.
     function stopSession() as Boolean {
-        if (!_isRecording || _session == null) {
+        var session = _session;
+        if (!_isRecording || session == null) {
             return false;
         }
 
         var saved = false;
-        var session = _session;
 
         try {
-            session.stop();
-
             if (_activeSeconds >= MIN_SESSION_SECONDS) {
-                var avgFlowScore = 0;
-                if (_flowScoreSamples > 0) {
-                    avgFlowScore = _flowScoreSum / _flowScoreSamples;
-                }
+                writeSessionFields();
+                session.stop();
 
                 // Only write the FIT activity (which syncs to Garmin Connect, and
                 // onward to Strava) when the user has sync enabled. Local history
@@ -173,40 +167,10 @@ class SessionManager {
                     session.discard();
                 }
 
-                // Compute session label
-                var label;
-                if (_mode == MODE_FLOWTIMER || _converted) {
-                    label = getFlowLabel(_activeSeconds);
-                } else {
-                    label = "Pomodoro";
-                }
-
-                // Save to local history
-                var startTime = _sessionStartTime;
-                var hm = _historyManager;
-                if (hm != null && startTime != null) {
-                    var flowZonePct = 0;
-                    if (_activeSeconds > 0) {
-                        flowZonePct = (_timeInFlowZone * 100) / _activeSeconds;
-                    }
-
-                    hm.saveSession({
-                        "timestamp" => startTime.value(),
-                        "duration" => _activeSeconds,
-                        "avgFlowScore" => avgFlowScore,
-                        "peakFlowScore" => _peakFlowScore,
-                        "flowZonePercent" => flowZonePct,
-                        "samples" => _flowScoreSamples,
-                        "mode" => _mode,
-                        "label" => label,
-                        "converted" => _converted,
-                        "timeToFlow" => _timeToFlow,
-                        "longestStreak" => _longestFlowStreak
-                    });
-                }
-
+                saveToHistory();
                 saved = true;
             } else {
+                session.stop();
                 session.discard();
             }
 
@@ -218,18 +182,73 @@ class SessionManager {
         return saved;
     }
 
-    //! Discard the current session without saving
-    function discardSession() as Void {
-        if (!_isRecording || _session == null) {
+    //! Session-level FIT fields shown in the Garmin Connect activity summary
+    private function writeSessionFields() as Void {
+        var extras = _extras;
+        if (extras == null) {
+            return;
+        }
+        var q = _qualityField;
+        if (q != null && extras.hasKey("quality")) {
+            q.setData(extras["quality"] as Number);
+        }
+        var dm = _deepMinutesField;
+        if (dm != null && extras.hasKey("deepSec")) {
+            dm.setData((extras["deepSec"] as Number) / 60);
+        }
+        var intr = _interruptionsField;
+        if (intr != null && extras.hasKey("intr")) {
+            intr.setData(extras["intr"] as Number);
+        }
+    }
+
+    private function saveToHistory() as Void {
+        var startTime = _sessionStartTime;
+        var hm = _historyManager;
+        if (hm == null || startTime == null) {
             return;
         }
 
-        var session = _session;
-        try {
-            if (session != null) {
-                session.stop();
-                session.discard();
+        var label;
+        if (_mode == MODE_FLOWTIMER || _converted) {
+            label = getFlowLabel(_activeSeconds);
+        } else {
+            label = "Pomodoro";
+        }
+
+        var avgDepth = _depthSamples > 0 ? _depthSum / _depthSamples : 0;
+        var record = {
+            "timestamp"    => startTime.value(),
+            "duration"     => _activeSeconds,
+            "avgFlowScore" => avgDepth,   // Legacy key: average depth
+            "samples"      => _depthSamples,
+            "mode"         => _mode,
+            "label"        => label,
+            "converted"    => _converted
+        } as Dictionary;
+
+        var extras = _extras;
+        if (extras != null) {
+            var keys = extras.keys();
+            for (var i = 0; i < keys.size(); i++) {
+                record[keys[i]] = extras[keys[i]];
             }
+        }
+
+        hm.saveSession(record);
+        _lastSavedTimestamp = startTime.value();
+    }
+
+    //! Discard the current session without saving
+    function discardSession() as Void {
+        var session = _session;
+        if (!_isRecording || session == null) {
+            return;
+        }
+
+        try {
+            session.stop();
+            session.discard();
         } catch (ex) {
             System.println("Error discarding session: " + ex.getErrorMessage());
         }
@@ -251,19 +270,18 @@ class SessionManager {
 
     private function resetState() as Void {
         _session = null;
-        _flowScoreField = null;
+        _depthField = null;
+        _qualityField = null;
+        _deepMinutesField = null;
+        _interruptionsField = null;
         _isRecording = false;
         _isPaused = false;
         _sessionStartTime = null;
-        _flowScoreSum = 0;
-        _flowScoreSamples = 0;
-        _peakFlowScore = 0;
-        _minFlowScore = 100;
-        _timeInFlowZone = 0;
+        _depthSum = 0;
+        _depthSamples = 0;
         _activeSeconds = 0;
         _converted = false;
-        _timeToFlow = -1;
-        _longestFlowStreak = 0;
+        _extras = null;
     }
 
     function isRecording() as Boolean {
@@ -279,26 +297,9 @@ class SessionManager {
         return _activeSeconds;
     }
 
-    function getSessionAvgFlowScore() as Number {
-        if (_flowScoreSamples == 0) {
-            return 0;
-        }
-        return _flowScoreSum / _flowScoreSamples;
-    }
-
-    function getSessionPeakFlowScore() as Number {
-        return _peakFlowScore;
-    }
-
-    function getSessionFlowZonePercent() as Number {
-        if (_activeSeconds == 0) {
-            return 0;
-        }
-        return (_timeInFlowZone * 100) / _activeSeconds;
-    }
-
-    function getFlowScoreSamples() as Number {
-        return _flowScoreSamples;
+    //! Start timestamp of the most recently saved session
+    function getLastSavedTimestamp() as Number {
+        return _lastSavedTimestamp;
     }
 
     //! Minimum session duration in seconds

@@ -6,7 +6,9 @@
     <property id="workDuration" type="number">25</property>
     <property id="shortBreakDuration" type="number">5</property>
     <property id="longBreakDuration" type="number">15</property>
-    <!-- Live flow-zone indicator during focus: 1 = on, 0 = off -->
+    <!-- Daily deep-work goal in minutes -->
+    <property id="deepGoal" type="number">120</property>
+    <!-- Live depth-zone indicator during focus: 1 = on, 0 = off -->
     <property id="liveFlow" type="number">1</property>
     <!-- Save completed sessions as a FIT activity (syncs to Garmin Connect / Strava) -->
     <property id="syncToGarmin" type="boolean">true</property>

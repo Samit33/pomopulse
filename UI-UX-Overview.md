@@ -1,5 +1,9 @@
 # PomoPulse — UI/UX & Flow Score Overview
 
+> **Superseded.** The Flow Score described here was replaced by the deep-work
+> depth model (depth, deep minutes, interruptions, quality). See
+> [docs/deep-work-model.md](docs/deep-work-model.md) and [UX.md](UX.md).
+
 **Platform:** Garmin Forerunner 255 (260×260 round display, Monkey C / Connect IQ)
 **Concept:** A Pomodoro timer that uses real-time biofeedback to score your focus quality (0–100) as you work.
 

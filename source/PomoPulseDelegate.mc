@@ -8,15 +8,15 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
     private var _timerController as TimerController?;
     private var _sensorManager as SensorManager?;
     private var _sessionManager as SessionManager?;
-    private var _flowCalculator as FlowScoreCalculator?;
+    private var _engine as DeepWorkEngine?;
     function initialize(timerController as TimerController?, sensorManager as SensorManager?,
-                       sessionManager as SessionManager?, flowCalculator as FlowScoreCalculator?,
+                       sessionManager as SessionManager?, engine as DeepWorkEngine?,
                        view as PomoPulseView?) {
         BehaviorDelegate.initialize();
         _timerController = timerController;
         _sensorManager = sensorManager;
         _sessionManager = sessionManager;
-        _flowCalculator = flowCalculator;
+        _engine = engine;
     }
 
     //! SELECT button (START/STOP)
@@ -81,10 +81,22 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
         return true;
     }
 
-    //! DOWN button — skip break (Pomodoro only)
+    //! DOWN button — during focus: log "I got distracted";
+    //! during a Pomodoro break: skip the break
     function onNextPage() as Boolean {
         var tc = _timerController;
         if (tc == null) { return false; }
+
+        var state = tc.getState();
+        if (state == STATE_FLOW_RUNNING || state == STATE_POMO_WORK) {
+            var engine = _engine;
+            if (engine != null) {
+                engine.logDistraction();
+                tc.vibrateTick();
+                WatchUi.requestUpdate();
+            }
+            return true;
+        }
 
         if (tc.isBreakState()) {
             tc.skipBreak();
@@ -128,8 +140,9 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
             tc.vibrate();  // Brief feedback
         }
 
-        if (_flowCalculator != null) {
-            _flowCalculator.reset();
+        var engine = _engine;
+        if (engine != null) {
+            engine.reset();
         }
     }
 
@@ -139,7 +152,7 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
         var dialog = new WatchUi.Confirmation("Abandon session?");
         WatchUi.pushView(dialog,
             new AbandonConfirmDelegate(_timerController, _sessionManager,
-                                       _sensorManager, _flowCalculator),
+                                       _sensorManager, _engine),
             WatchUi.SLIDE_IMMEDIATE);
     }
 
@@ -193,46 +206,19 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
         }
     }
 
-    //! Save session and show summary screen
+    //! Save the Flowtimer session and show rating + summary
     private function saveAndShowSummary() as Void {
         var duration = 0;
-        var mode = MODE_FLOWTIMER;
-        var label = "Short flow";
-
         var sm = _sessionManager;
-        var fc = _flowCalculator;
         if (sm != null) {
             duration = sm.getSessionDuration();
         }
-
+        var label = "Short flow";
         var tc = _timerController;
         if (tc != null) {
-            mode = tc.getMode();
-            if (mode == MODE_FLOWTIMER) {
-                label = tc.getFlowSessionLabelForDuration(duration);
-            } else {
-                label = "Pomodoro";
-            }
+            label = tc.getFlowSessionLabelForDuration(duration);
         }
-
-        if (sm != null) {
-            if (fc != null) {
-                sm.setFlowMetrics(fc.getTimeToFlow(), fc.getLongestFlowStreak());
-            }
-            sm.stopSession();
-        }
-        if (_sensorManager != null) {
-            _sensorManager.stopSensors();
-        }
-
-        var stats = collectSessionStats(fc, duration, mode, label, false);
-        if (fc != null) {
-            fc.finalizeSession();
-        }
-
-        var summaryView = new SessionSummaryView(stats);
-        var summaryDelegate = new SessionSummaryDelegate(summaryView);
-        WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
+        getApp().finishSession(MODE_FLOWTIMER, label, false);
     }
 
     //! Called by TimerController on auto-stop (Flowtimer ceiling/pause timeout)
@@ -249,8 +235,9 @@ class PomoPulseDelegate extends WatchUi.BehaviorDelegate {
             discardRecording();
         }
 
-        if (_flowCalculator != null) {
-            _flowCalculator.reset();
+        var engine = _engine;
+        if (engine != null) {
+            engine.reset();
         }
     }
 }
@@ -261,15 +248,15 @@ class AbandonConfirmDelegate extends WatchUi.ConfirmationDelegate {
     private var _timerController as TimerController?;
     private var _sessionManager as SessionManager?;
     private var _sensorManager as SensorManager?;
-    private var _flowCalculator as FlowScoreCalculator?;
+    private var _engine as DeepWorkEngine?;
 
     function initialize(tc as TimerController?, sm as SessionManager?,
-                       sensor as SensorManager?, fc as FlowScoreCalculator?) {
+                       sensor as SensorManager?, fc as DeepWorkEngine?) {
         ConfirmationDelegate.initialize();
         _timerController = tc;
         _sessionManager = sm;
         _sensorManager = sensor;
-        _flowCalculator = fc;
+        _engine = fc;
     }
 
     function onResponse(response as WatchUi.Confirm) as Boolean {
@@ -286,7 +273,7 @@ class AbandonConfirmDelegate extends WatchUi.ConfirmationDelegate {
                 var dialog = new WatchUi.Confirmation("Save as flow session?");
                 WatchUi.pushView(dialog,
                     new ConvertConfirmDelegate(_timerController, _sessionManager,
-                                               _sensorManager, _flowCalculator,
+                                               _sensorManager, _engine,
                                                activeSeconds),
                     WatchUi.SLIDE_IMMEDIATE);
             } else {
@@ -297,8 +284,9 @@ class AbandonConfirmDelegate extends WatchUi.ConfirmationDelegate {
                 if (_sensorManager != null) {
                     _sensorManager.stopSensors();
                 }
-                if (_flowCalculator != null) {
-                    _flowCalculator.reset();
+                var engine = _engine;
+                if (engine != null) {
+                    engine.reset();
                 }
             }
         }
@@ -313,17 +301,17 @@ class ConvertConfirmDelegate extends WatchUi.ConfirmationDelegate {
     private var _timerController as TimerController?;
     private var _sessionManager as SessionManager?;
     private var _sensorManager as SensorManager?;
-    private var _flowCalculator as FlowScoreCalculator?;
+    private var _engine as DeepWorkEngine?;
     private var _activeSeconds as Number;
 
     function initialize(tc as TimerController?, sm as SessionManager?,
-                       sensor as SensorManager?, fc as FlowScoreCalculator?,
+                       sensor as SensorManager?, fc as DeepWorkEngine?,
                        activeSeconds as Number) {
         ConfirmationDelegate.initialize();
         _timerController = tc;
         _sessionManager = sm;
         _sensorManager = sensor;
-        _flowCalculator = fc;
+        _engine = fc;
         _activeSeconds = activeSeconds;
     }
 
@@ -331,34 +319,16 @@ class ConvertConfirmDelegate extends WatchUi.ConfirmationDelegate {
         if (response == WatchUi.CONFIRM_YES) {
             // Convert: save as Flowtimer session
             var sm = _sessionManager;
-            var fc = _flowCalculator;
             if (sm != null) {
                 sm.setConverted(true);
                 sm.setSessionMode(MODE_FLOWTIMER);
-                if (fc != null) {
-                    sm.setFlowMetrics(fc.getTimeToFlow(), fc.getLongestFlowStreak());
-                }
-                sm.stopSession();
             }
-            if (_sensorManager != null) {
-                _sensorManager.stopSensors();
-            }
-
             var tc = _timerController;
             var label = "Short flow";
             if (tc != null) {
                 label = tc.getFlowSessionLabelForDuration(_activeSeconds);
             }
-
-            var stats = collectSessionStats(fc, _activeSeconds, MODE_FLOWTIMER, label, true);
-            if (fc != null) {
-                fc.finalizeSession();
-                fc.reset();
-            }
-
-            var summaryView = new SessionSummaryView(stats);
-            var summaryDelegate = new SessionSummaryDelegate(summaryView);
-            WatchUi.pushView(summaryView, summaryDelegate, WatchUi.SLIDE_UP);
+            getApp().finishSession(MODE_FLOWTIMER, label, true);
         } else {
             // Discard entirely
             if (_sessionManager != null) {
@@ -367,8 +337,9 @@ class ConvertConfirmDelegate extends WatchUi.ConfirmationDelegate {
             if (_sensorManager != null) {
                 _sensorManager.stopSensors();
             }
-            if (_flowCalculator != null) {
-                _flowCalculator.reset();
+            var engine = _engine;
+            if (engine != null) {
+                engine.reset();
             }
         }
         return true;
